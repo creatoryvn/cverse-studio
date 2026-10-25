@@ -441,7 +441,7 @@ gltf.load('assets/3d/room-a.glb', g => {
   scene.add(room);
   $('loading').hidden = true;
   start();
-}, e => { if (e.total) { const p = Math.round(e.loaded / e.total * 100); $('loadBar').style.width = p + '%'; $('loadTxt').textContent = p + '%'; } },
+}, e => { if (e.total) { const p = Math.min(100, Math.round(e.loaded / e.total * 100)); $('loadBar').style.width = p + '%'; $('loadTxt').textContent = p + '%'; } },
 err => { $('loadTxt').textContent = 'Không tải được mô hình phòng: ' + err.message; });
 
 // ---------- state ----------
