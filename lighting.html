@@ -121,6 +121,8 @@ input[type=range]{width:100%;accent-color:var(--pink)}
   .panel-only{display:flex!important}
 }
 .panel-only{display:none}
+.tip{margin-top:6px;font-size:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tip button{padding:3px 10px;border-radius:999px;border:1px solid var(--edge);background:rgba(255,255,255,.1);color:inherit;font:inherit;font-weight:600;cursor:pointer}
 </style>
 </head>
 <body>
@@ -152,7 +154,7 @@ input[type=range]{width:100%;accent-color:var(--pink)}
     <section class="sec">
       <h3 data-t="room">Phòng</h3>
       <label class="chk"><input type="checkbox" id="house"> <span data-t="house">Bật đèn trần phòng (≈150 lux)</span></label>
-      <label class="chk" style="margin-top:8px"><input type="checkbox" id="assist" checked> <span data-t="assist">Làm sáng để dễ dựng cảnh (không tính vào đo sáng)</span></label>
+      <label class="chk" style="margin-top:8px"><input type="checkbox" id="eye" checked> <span data-t="eye">Góc tự do: tự cân sáng như mắt nhìn (khung máy ảnh luôn theo thông số máy)</span></label>
       <div class="row" style="margin-top:12px"><button class="btn" type="button" id="shareBtn" data-t="share">Lưu &amp; chép link</button><button class="btn" type="button" id="resetBtn" data-t="reset">Bố trí mẫu</button></div>
       <div class="row panel-only" style="margin-top:12px;justify-content:space-between">
         <div class="seg" role="group" aria-label="Language"><button type="button" data-lang="vi">VI</button><button type="button" data-lang="en">EN</button><button type="button" data-lang="ko">KR</button></div>
@@ -167,6 +169,7 @@ input[type=range]{width:100%;accent-color:var(--pink)}
   <div class="k" data-t="meterK">Đo sáng tại mặt người mẫu</div>
   <div class="big" id="mAp">f/—</div>
   <div class="diff" id="mDiff"></div>
+  <div class="tip" id="mTip" hidden></div>
   <div class="camset">
     <select id="iso" aria-label="ISO"></select><select id="shutter" aria-label="Shutter"></select><select id="aperture" aria-label="Aperture"></select>
   </div>
@@ -201,7 +204,9 @@ const T = {
   controls:['Bảng điều khiển','Controls','설정'], addLight:['Thêm đèn','Add a light','조명 추가'], add:['+ Thêm','+ Add','+ 추가'],
   scene:['Trong cảnh','In the scene','장면 구성'], room:['Phòng','Room','룸'],
   house:['Bật đèn trần phòng (≈150 lux)','Room ceiling lights on (≈150 lux)','천장 조명 켜기 (≈150 lux)'],
-  assist:['Làm sáng để dễ dựng cảnh (không tính vào đo sáng)','Brighten for easier setup (not metered)','세팅용 밝기 보정 (측광 제외)'],
+  eye:['Góc tự do: tự cân sáng như mắt nhìn (khung máy ảnh luôn theo thông số máy)','Free view: auto-exposure like your eyes (camera frame always uses camera settings)','자유 시점: 눈처럼 자동 노출 (카메라 화면은 항상 카메라 설정 기준)'],
+  bounce:['Ánh sáng hắt (tường, sàn, phông)','Bounce (walls, floor, backdrop)','반사광 (벽·바닥·배경)'],
+  tip:['Gợi ý','Try','추천'], apply:['Áp dụng','Apply','적용'],
   share:['Lưu & chép link','Save & copy link','저장 & 링크 복사'], reset:['Bố trí mẫu','Sample setup','기본 세팅'],
   disclaimer:['Kết quả mang tính tham khảo (sai số khoảng ±1 stop). Thông số đèn lấy theo công bố của hãng; bóng đổ và ánh sáng phản xạ được mô phỏng gần đúng.',
     'Results are a guide (about ±1 stop). Light output follows manufacturer specs; shadows and bounce light are approximated.',
@@ -301,8 +306,9 @@ tc.addEventListener('dragging-changed', e => { orbit.enabled = !e.value; if (!e.
 tc.addEventListener('objectChange', () => { constrain(tc.object); refresh(); });
 
 const hemi = new THREE.HemisphereLight(0xffffff, 0x555048, 0);   // ceiling lights (metered)
-const assistLight = new THREE.HemisphereLight(0xffffff, 0x404040, 0); // setup helper (not metered)
-scene.add(hemi, assistLight);
+const bounceAmb = new THREE.HemisphereLight(0xffffff, 0xffffff, 0);   // room-wide inter-reflection (metered)
+scene.add(hemi, bounceAmb);
+let roomObj = null, expCam = 1, expEye = 1, bounceE = 0;
 
 // ---------- helpers ----------
 function kelvinRGB(k){
@@ -381,9 +387,11 @@ function addLight(o){
   g.position.set(o.x, o.y, o.z);
   L.group = g; L.head = head;
   buildHead(L);
-  scene.add(g); lights.push(L);
+  L.bounce = new THREE.PointLight(0xffffff, 0, 0, 2); L.bounceAt = new THREE.Vector3();
+  scene.add(g, L.bounce); lights.push(L);
   return L;
 }
+function dropLight(L){ scene.remove(L.group, L.bounce); if (L.light.target) scene.remove(L.light.target); }
 function buildHead(L){
   const head = L.head; head.clear();
   if (L.light) { scene.remove(L.light.target); }
@@ -463,6 +471,46 @@ function specNote(L){
   const at1 = fix.kind === 'flash' ? `f/${fmtN(Math.sqrt(e1 / (1 + areaOf(L) / Math.PI) * 100 / C))} (ISO 100)` : `${fmt(e1 / (1 + areaOf(L) / Math.PI))} lux`;
   return `${t('specLbl')}: ${src}${fix.est ? ' · ' + t('estLbl') : ''}<br>${t('at1m')}: <b>${at1}</b>`;
 }
+// lumens leaving the modifier (flash: steady equivalent at the chosen shutter, like cd())
+function fluxOut(L){
+  const fix = FIX[L.fix], mod = MOD[L.mod];
+  if (fix.kind === 'panel') return fix.lux * Math.PI * (L.p / 100);
+  const pw = fix.kind === 'flash' ? Math.pow(2, -L.p) * camRig.sh : (L.p / 100) * cctGain(fix, L.cct);
+  const flux = fix.kind === 'flash' ? 40 * fix.ws : fix.flux;
+  return flux * pw * (mod.T || 0.85);
+}
+
+// ---------- bounce light ----------
+// three.js has no global illumination, so each light gets a second, shadowless source where its beam lands on the room:
+// a Lambertian patch re-emits ρ·Φ (tinted by the surface — a green screen spills green). Light scattered around the
+// room adds an even ambient E = ρ·ΣΦ / (A·(1 − ρ)) (room A ≈ 270 m² of surfaces, average ρ ≈ 0.4).
+const bray = new THREE.Raycaster(), ROOM_AREA = 270, RHO = 0.4;
+function updateBounce(){
+  let total = 0;
+  lights.forEach(L => {
+    const phi = fluxOut(L); total += phi;
+    L.bounce.intensity = 0;
+    if (!roomObj || MOD[L.mod].shape === 'ball' && FIX[L.fix].kind !== 'panel') return;
+    const o = new THREE.Vector3(); L.front.getWorldPosition(o);
+    const dir = L.light.target.position.clone().sub(o).normalize();
+    bray.set(o, dir); bray.far = 20;
+    const hit = bray.intersectObject(roomObj, true)[0];
+    if (!hit) return;
+    const m = Array.isArray(hit.object.material) ? hit.object.material[0] : hit.object.material;
+    const c = m && m.color ? m.color.clone() : new THREE.Color(0.5, 0.5, 0.5);
+    if (m && m.map) c.multiplyScalar(0.55);
+    const rho = THREE.MathUtils.clamp(0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b, 0.04, 0.85);
+    const n = hit.face ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld) : dir.clone().negate();
+    if (n.dot(dir) > 0) n.negate();
+    L.bounceAt.copy(hit.point).addScaledVector(n, 0.6);
+    L.bounce.position.copy(L.bounceAt);
+    const tint = L.light.color.clone().multiply(c), lum = 0.2126 * tint.r + 0.7152 * tint.g + 0.0722 * tint.b;
+    L.bounce.color.copy(lum > 0 ? tint.multiplyScalar(1 / lum) : tint);
+    L.bounce.intensity = rho * phi * 0.6 / (2 * Math.PI);   // ~60% of the beam lands on the first surface
+  });
+  bounceE = total * RHO / (ROOM_AREA * (1 - RHO));
+  bounceAmb.intensity = bounceE / Math.PI;
+}
 // emitting area of a soft source (m²) — keeps close-up readings finite like a real softbox
 const areaOf = L => FIX[L.fix].kind === 'panel' ? 0.13 : (MOD[L.mod].area || 0);
 
@@ -480,7 +528,7 @@ gltf.load('assets/3d/room-a.glb', g => {
     ms.forEach(m => { if (m && m.isMeshStandardMaterial) { m.envMapIntensity = 0; if (m.emissive) m.emissive.setScalar(0); } });
     if (o.name.startsWith('Plane014') || o.name.startsWith('Plane.014')) o.material = matStd(0xf2f1ee, 0.9);
   });
-  scene.add(room);
+  scene.add(room); roomObj = room;
   $('loading').hidden = true;
   start();
 }, e => { if (e.total) { const p = Math.min(100, Math.round(e.loaded / e.total * 100)); $('loadBar').style.width = p + '%'; $('loadTxt').textContent = p + '%'; } },
@@ -488,7 +536,7 @@ err => { $('loadTxt').textContent = 'Không tải được mô hình phòng: ' +
 
 // ---------- state ----------
 function sample(){
-  lights.splice(0).forEach(L => { scene.remove(L.group); if (L.light.target) scene.remove(L.light.target); });
+  lights.splice(0).forEach(L => { dropLight(L); });
   subject.pose = 'stand'; subject.h = 1.72; subject.rot = 90; subject.group.position.set(-2.4, 0, -0.1); buildMannequin();
   Object.assign(camRig, { f:50, iso:100, sh:125, ap:8, aim:true }); camRig.group.position.set(1.0, 1.45, -0.1);
   addLight({ fix:'dp600', mod:'qrp70', p:2, x:-0.9, y:2.2, z:1.5 });
@@ -501,7 +549,7 @@ function serialize(){
     s:[+subject.group.position.x.toFixed(2), +subject.group.position.z.toFixed(2), subject.rot, subject.h, subject.pose], h:$('house').checked ? 1 : 0 };
 }
 function restore(d){
-  lights.splice(0).forEach(L => { scene.remove(L.group); if (L.light.target) scene.remove(L.light.target); });
+  lights.splice(0).forEach(L => { dropLight(L); });
   subject.group.position.set(d.s[0], 0, d.s[1]); subject.rot = d.s[2]; subject.h = d.s[3]; subject.pose = d.s[4]; buildMannequin();
   camRig.group.position.set(d.c[0], d.c[1], d.c[2]); [camRig.f, camRig.iso, camRig.sh, camRig.ap] = d.c.slice(3);
   d.l.forEach(a => { if (FIX[a[0]] && MOD[a[1]]) addLight({ fix:a[0], mod:a[1], x:a[2], y:a[3], z:a[4], p:a[5], cct:a[6], aim:!!a[7], yaw:a[8], tilt:a[9] }); });
@@ -557,7 +605,7 @@ function renderProps(){
     on('pH', el => L.group.position.y = +el.value);
     on('pAim', el => { L.aim = el.checked; $('pManual').hidden = L.aim; });
     on('pYaw', el => L.yaw = +el.value); on('pTilt', el => L.tilt = +el.value);
-    $('pDel').addEventListener('click', () => { scene.remove(L.group); if (L.light.target) scene.remove(L.light.target); lights.splice(lights.indexOf(L), 1); select(null); refresh(); save(); });
+    $('pDel').addEventListener('click', () => { dropLight(L); lights.splice(lights.indexOf(L), 1); select(null); refresh(); save(); });
   } else if (selected.kind === 'camera') {
     box.innerHTML = `<h4>${t('camera')}</h4>${slider('cF', t('focal'), 16, 135, 1, camRig.f, v => v + ' mm')}${slider('cH', t('height'), 0.4, 2.4, 0.05, camRig.group.position.y, v => (+v).toFixed(2) + ' m')}`;
     $('cF').addEventListener('input', e => { camRig.f = +e.target.value; $('cFO').textContent = camRig.f + ' mm'; refresh(); save(); renderList(); });
@@ -620,6 +668,13 @@ function meterAt(){
     const e = cd(L) * dome * beam / (d * d + areaOf(L) / Math.PI);
     E += e; rows.push([FIX[L.fix].name, e]);
   });
+  let eb = bounceE;
+  lights.forEach(L => {
+    if (!L.bounce.intensity) return;
+    const v = L.bounceAt.clone().sub(P), d = Math.max(0.5, v.length()); v.normalize();
+    eb += L.bounce.intensity * Math.max(0, (1 + v.dot(N)) / 2) / (d * d);
+  });
+  if (eb >= 1) { E += eb; rows.push([t('bounce'), eb]); }
   if ($('house').checked) { E += 75; rows.push([t('ambient'), 75]); }
   return { E, rows };
 }
@@ -636,6 +691,20 @@ function updateMeter(){
     if (Math.abs(dv) < 0.34) { el.className = 'diff ok'; el.textContent = '✓ ' + t('correct') + ` @ f/${camRig.ap}`; }
     else { el.className = 'diff ' + (dv > 0 ? 'hi' : 'lo'); el.textContent = `${dv > 0 ? '+' : '−'}${Math.abs(dv).toFixed(1)} stop ${dv > 0 ? t('over') : t('under')} (f/${camRig.ap})`; }
   }
+  // settings that expose the face correctly: keep the shutter, prefer the current aperture, then the lowest ISO
+  const tip = $('mTip'), dvAll = N >= 1 ? 2 * Math.log2(N / camRig.ap) : -9;
+  if (Math.abs(dvAll) >= 0.34 && E > 0) {
+    const nAt = iso => Math.sqrt(E * t_ * iso / C);
+    // continuous light: open up to f/2.8 before pushing ISO, the way photographers shoot LED
+    let iso = ISOS.find(s => nAt(s) >= Math.min(camRig.ap, 2.8) * 0.94) || ISOS[ISOS.length - 1];
+    if (nAt(iso) > 16) iso = ISOS[0];
+    const n = nAt(iso), ap = APS.reduce((a, b) => Math.abs(Math.log2(b / n)) < Math.abs(Math.log2(a / n)) ? b : a);
+    if (n >= APS[0] * 0.9 && n <= 16 * 1.1 && (iso !== camRig.iso || ap !== camRig.ap)) {
+      tip.hidden = false;
+      tip.innerHTML = `${t('tip')}: <b>ISO ${iso} · f/${ap} · 1/${camRig.sh}s</b> <button type="button">${t('apply')}</button>`;
+      tip.querySelector('button').onclick = () => { camRig.iso = iso; camRig.ap = ap; fillCamSelects(); refresh(); save(); renderList(); };
+    } else tip.hidden = true;
+  } else tip.hidden = true;
   const max = Math.max(1, ...rows.map(r => r[1]));
   $('mList').innerHTML = rows.map(([n, e]) => `<li><span>${n}</span><span>${Math.round(e).toLocaleString('vi-VN')} lux${rows.length > 1 && e === max ? ' ★' : ''}</span></li>`).join('') + `<li><span><b>Σ</b></span><span><b>${Math.round(E).toLocaleString('vi-VN')} lux</b></span></li>`;
 }
@@ -647,16 +716,17 @@ function refresh(){
     const c = kelvinRGB(FIX[L.fix].kind === 'flash' ? 5600 : L.cct);
     L.light.color.copy(c); L.light.intensity = cd(L);
   });
+  updateBounce();
   const exp = Math.PI * (1 / camRig.sh) * camRig.iso / (C * camRig.ap * camRig.ap);
-  renderer.toneMappingExposure = exp;
+  expCam = exp;
   // the modifier faces glow in proportion to their output, but never clip to a flat white blob
   lights.forEach(L => { L.front.material.emissive.copy(L.light.color); L.front.material.emissiveIntensity = (1.2 + 1.8 * Math.min(1, cd(L) * exp * 20)) / exp; });
   hemi.intensity = $('house').checked ? 150 / Math.PI : 0;
-  // setup helper: a fixed on-screen brightness whatever the exposure, so the room stays readable while placing gear
-  assistLight.intensity = $('assist').checked ? 0.35 / exp : 0;
   // only the four brightest lights cast shadows, to keep phones fluid
   [...lights].sort((a, b) => cd(b) - cd(a)).forEach((L, i) => { if (L.light.isSpotLight) L.light.castShadow = i < 4; });
   layoutCamera(); updateMeter();
+  // eye: expose the free view so the face sits at mid-grey (π/E is the exposure a correct camera setting gives)
+  expEye = $('eye').checked ? Math.PI / Math.max(20, meterE) : exp;
 }
 
 // ---------- picking ----------
@@ -701,13 +771,16 @@ function frame(){
   renderer.setClearColor(0x0b0b0c, 1);
   if (view === 'free') {
     camHelper.visible = true; tc.visible = !!selected;
+    renderer.toneMappingExposure = expEye;
     pass(viewCam, 0, 0, w, h);
+    renderer.toneMappingExposure = expCam;
     const pr = $('pip').getBoundingClientRect();
     camHelper.visible = false; const tv = tc.visible; tc.visible = false;
     pass(shootCam, pr.left, h - pr.bottom, pr.width, pr.height);
     tc.visible = tv;
   } else {
     camHelper.visible = false; tc.visible = false;
+    renderer.toneMappingExposure = expCam;
     renderer.setViewport(0, 0, w, h); renderer.setScissor(0, 0, w, h); renderer.clear();
     const b = camBox(); pass(shootCam, b.x, b.y, b.w, b.h);
   }
@@ -723,7 +796,7 @@ $('addBtn').addEventListener('click', () => {
   refresh(); select({ kind:'light', L }); save();
 });
 $('house').addEventListener('change', () => { refresh(); save(); });
-$('assist').addEventListener('change', refresh);
+$('eye').addEventListener('change', refresh);
 $('resetBtn').addEventListener('click', () => { sample(); fillCamSelects(); select(null); refresh(); save(); });
 $('shareBtn').addEventListener('click', () => {
   save();
