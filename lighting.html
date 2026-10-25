@@ -154,7 +154,7 @@ input[type=range]{width:100%;accent-color:var(--pink)}
     <section class="sec">
       <h3 data-t="room">Phòng</h3>
       <label class="chk"><input type="checkbox" id="house"> <span data-t="house">Bật đèn trần phòng (≈150 lux)</span></label>
-      <label class="chk" style="margin-top:8px"><input type="checkbox" id="eye" checked> <span data-t="eye">Góc tự do: tự cân sáng như mắt nhìn (khung máy ảnh luôn theo thông số máy)</span></label>
+      <p class="note" style="margin-top:8px" data-t="eye">Góc tự do: nhìn như mắt thường, không phụ thuộc máy ảnh. Khung máy ảnh theo đúng ISO, tốc độ, khẩu độ.</p>
       <div class="row" style="margin-top:12px"><button class="btn" type="button" id="shareBtn" data-t="share">Lưu &amp; chép link</button><button class="btn" type="button" id="resetBtn" data-t="reset">Bố trí mẫu</button></div>
       <div class="row panel-only" style="margin-top:12px;justify-content:space-between">
         <div class="seg" role="group" aria-label="Language"><button type="button" data-lang="vi">VI</button><button type="button" data-lang="en">EN</button><button type="button" data-lang="ko">KR</button></div>
@@ -204,7 +204,7 @@ const T = {
   controls:['Bảng điều khiển','Controls','설정'], addLight:['Thêm đèn','Add a light','조명 추가'], add:['+ Thêm','+ Add','+ 추가'],
   scene:['Trong cảnh','In the scene','장면 구성'], room:['Phòng','Room','룸'],
   house:['Bật đèn trần phòng (≈150 lux)','Room ceiling lights on (≈150 lux)','천장 조명 켜기 (≈150 lux)'],
-  eye:['Góc tự do: tự cân sáng như mắt nhìn (khung máy ảnh luôn theo thông số máy)','Free view: auto-exposure like your eyes (camera frame always uses camera settings)','자유 시점: 눈처럼 자동 노출 (카메라 화면은 항상 카메라 설정 기준)'],
+  eye:['Góc tự do: nhìn như mắt thường, không phụ thuộc máy ảnh. Khung máy ảnh theo đúng ISO, tốc độ, khẩu độ.','Free view: what your eyes see, independent of the camera. The camera frame follows its ISO, shutter and aperture.','자유 시점: 카메라와 무관하게 눈으로 보는 밝기. 카메라 화면은 ISO·셔터·조리개를 그대로 따릅니다.'],
   bounce:['Ánh sáng hắt (tường, sàn, phông)','Bounce (walls, floor, backdrop)','반사광 (벽·바닥·배경)'],
   tip:['Gợi ý','Try','추천'], apply:['Áp dụng','Apply','적용'],
   share:['Lưu & chép link','Save & copy link','저장 & 링크 복사'], reset:['Bố trí mẫu','Sample setup','기본 세팅'],
@@ -308,7 +308,10 @@ tc.addEventListener('objectChange', () => { constrain(tc.object); refresh(); });
 const hemi = new THREE.HemisphereLight(0xffffff, 0x555048, 0);   // ceiling lights (metered)
 const bounceAmb = new THREE.HemisphereLight(0xffffff, 0xffffff, 0);   // room-wide inter-reflection (metered)
 scene.add(hemi, bounceAmb);
-let roomObj = null, expCam = 1, expEye = 1, bounceE = 0;
+let roomObj = null, expCam = 1, bounceE = 0, bounceEyeE = 0;
+// Free view = the eye in the studio, independent of the camera: a fixed adaptation (≈300 lux reads mid-grey), so raising a
+// light really looks brighter. The eye sees a flash burst as a pop, drawn here like a steady light lasting 1/4 s.
+const EXP_EYE = Math.PI / 300, EYE_SH = 4;
 
 // ---------- helpers ----------
 function kelvinRGB(k){
@@ -456,9 +459,9 @@ function baseI(L){
   if (mod.shape === 'ball') return flux * mod.T / (4 * Math.PI);
   return flux * mod.T / Math.PI;
 }
-function cd(L){
+function cd(L, sh = camRig.sh){
   const fix = FIX[L.fix];
-  if (fix.kind === 'flash') return baseI(L) * Math.pow(2, -L.p) * camRig.sh;
+  if (fix.kind === 'flash') return baseI(L) * Math.pow(2, -L.p) * sh;
   return baseI(L) * (L.p / 100) * cctGain(fix, L.cct);
 }
 // spec line + what this setting gives on axis at 1 m, so it can be checked against a real meter
@@ -472,10 +475,10 @@ function specNote(L){
   return `${t('specLbl')}: ${src}${fix.est ? ' · ' + t('estLbl') : ''}<br>${t('at1m')}: <b>${at1}</b>`;
 }
 // lumens leaving the modifier (flash: steady equivalent at the chosen shutter, like cd())
-function fluxOut(L){
+function fluxOut(L, sh = camRig.sh){
   const fix = FIX[L.fix], mod = MOD[L.mod];
   if (fix.kind === 'panel') return fix.lux * Math.PI * (L.p / 100);
-  const pw = fix.kind === 'flash' ? Math.pow(2, -L.p) * camRig.sh : (L.p / 100) * cctGain(fix, L.cct);
+  const pw = fix.kind === 'flash' ? Math.pow(2, -L.p) * sh : (L.p / 100) * cctGain(fix, L.cct);
   const flux = fix.kind === 'flash' ? 40 * fix.ws : fix.flux;
   return flux * pw * (mod.T || 0.85);
 }
@@ -486,10 +489,10 @@ function fluxOut(L){
 // room adds an even ambient E = ρ·ΣΦ / (A·(1 − ρ)) (room A ≈ 270 m² of surfaces, average ρ ≈ 0.4).
 const bray = new THREE.Raycaster(), ROOM_AREA = 270, RHO = 0.4;
 function updateBounce(){
-  let total = 0;
+  let total = 0, totalEye = 0;
   lights.forEach(L => {
-    const phi = fluxOut(L); total += phi;
-    L.bounce.intensity = 0;
+    const phi = fluxOut(L), phiEye = fluxOut(L, EYE_SH); total += phi; totalEye += phiEye;
+    L.bCam = L.bEye = 0;
     if (!roomObj || MOD[L.mod].shape === 'ball' && FIX[L.fix].kind !== 'panel') return;
     const o = new THREE.Vector3(); L.front.getWorldPosition(o);
     const dir = L.light.target.position.clone().sub(o).normalize();
@@ -506,10 +509,11 @@ function updateBounce(){
     L.bounce.position.copy(L.bounceAt);
     const tint = L.light.color.clone().multiply(c), lum = 0.2126 * tint.r + 0.7152 * tint.g + 0.0722 * tint.b;
     L.bounce.color.copy(lum > 0 ? tint.multiplyScalar(1 / lum) : tint);
-    L.bounce.intensity = rho * phi * 0.6 / (2 * Math.PI);   // ~60% of the beam lands on the first surface
+    L.bCam = rho * phi * 0.6 / (2 * Math.PI);   // ~60% of the beam lands on the first surface
+    L.bEye = rho * phiEye * 0.6 / (2 * Math.PI);
   });
   bounceE = total * RHO / (ROOM_AREA * (1 - RHO));
-  bounceAmb.intensity = bounceE / Math.PI;
+  bounceEyeE = totalEye * RHO / (ROOM_AREA * (1 - RHO));
 }
 // emitting area of a soft source (m²) — keeps close-up readings finite like a real softbox
 const areaOf = L => FIX[L.fix].kind === 'panel' ? 0.13 : (MOD[L.mod].area || 0);
@@ -670,9 +674,9 @@ function meterAt(){
   });
   let eb = bounceE;
   lights.forEach(L => {
-    if (!L.bounce.intensity) return;
+    if (!L.bCam) return;
     const v = L.bounceAt.clone().sub(P), d = Math.max(0.5, v.length()); v.normalize();
-    eb += L.bounce.intensity * Math.max(0, (1 + v.dot(N)) / 2) / (d * d);
+    eb += L.bCam * Math.max(0, (1 + v.dot(N)) / 2) / (d * d);
   });
   if (eb >= 1) { E += eb; rows.push([t('bounce'), eb]); }
   if ($('house').checked) { E += 75; rows.push([t('ambient'), 75]); }
@@ -714,19 +718,27 @@ function refresh(){
   lights.forEach(L => {
     layoutLight(L);
     const c = kelvinRGB(FIX[L.fix].kind === 'flash' ? 5600 : L.cct);
-    L.light.color.copy(c); L.light.intensity = cd(L);
+    L.light.color.copy(c); L.front.material.emissive.copy(c);
+    L.iCam = cd(L); L.iEye = cd(L, EYE_SH);
   });
   updateBounce();
-  const exp = Math.PI * (1 / camRig.sh) * camRig.iso / (C * camRig.ap * camRig.ap);
-  expCam = exp;
-  // the modifier faces glow in proportion to their output, but never clip to a flat white blob
-  lights.forEach(L => { L.front.material.emissive.copy(L.light.color); L.front.material.emissiveIntensity = (1.2 + 1.8 * Math.min(1, cd(L) * exp * 20)) / exp; });
+  expCam = Math.PI * (1 / camRig.sh) * camRig.iso / (C * camRig.ap * camRig.ap);
   hemi.intensity = $('house').checked ? 150 / Math.PI : 0;
   // only the four brightest lights cast shadows, to keep phones fluid
-  [...lights].sort((a, b) => cd(b) - cd(a)).forEach((L, i) => { if (L.light.isSpotLight) L.light.castShadow = i < 4; });
+  [...lights].sort((a, b) => b.iEye - a.iEye).forEach((L, i) => { if (L.light.isSpotLight) L.light.castShadow = i < 4; });
   layoutCamera(); updateMeter();
-  // eye: expose the free view so the face sits at mid-grey (π/E is the exposure a correct camera setting gives)
-  expEye = $('eye').checked ? Math.PI / Math.max(20, meterE) : exp;
+}
+// The eye view and the camera view share one scene; only light strengths and exposure differ, set before each pass.
+function setMode(eye){
+  const exp = eye ? EXP_EYE : expCam;
+  lights.forEach(L => {
+    const i = eye ? L.iEye : L.iCam;
+    L.light.intensity = i; L.bounce.intensity = eye ? L.bEye : L.bCam;
+    // the modifier faces glow in proportion to their output, but never clip to a flat white blob
+    L.front.material.emissiveIntensity = (1.2 + 1.8 * Math.min(1, i * exp * 20)) / exp;
+  });
+  bounceAmb.intensity = (eye ? bounceEyeE : bounceE) / Math.PI;
+  renderer.toneMappingExposure = exp;
 }
 
 // ---------- picking ----------
@@ -771,16 +783,16 @@ function frame(){
   renderer.setClearColor(0x0b0b0c, 1);
   if (view === 'free') {
     camHelper.visible = true; tc.visible = !!selected;
-    renderer.toneMappingExposure = expEye;
+    setMode(true);
     pass(viewCam, 0, 0, w, h);
-    renderer.toneMappingExposure = expCam;
+    setMode(false);
     const pr = $('pip').getBoundingClientRect();
     camHelper.visible = false; const tv = tc.visible; tc.visible = false;
     pass(shootCam, pr.left, h - pr.bottom, pr.width, pr.height);
     tc.visible = tv;
   } else {
     camHelper.visible = false; tc.visible = false;
-    renderer.toneMappingExposure = expCam;
+    setMode(false);
     renderer.setViewport(0, 0, w, h); renderer.setScissor(0, 0, w, h); renderer.clear();
     const b = camBox(); pass(shootCam, b.x, b.y, b.w, b.h);
   }
@@ -796,7 +808,6 @@ $('addBtn').addEventListener('click', () => {
   refresh(); select({ kind:'light', L }); save();
 });
 $('house').addEventListener('change', () => { refresh(); save(); });
-$('eye').addEventListener('change', refresh);
 $('resetBtn').addEventListener('click', () => { sample(); fillCamSelects(); select(null); refresh(); save(); });
 $('shareBtn').addEventListener('click', () => {
   save();
