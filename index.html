@@ -494,7 +494,8 @@ a{color:inherit}
 
 /* explore tiles */
 .band.explore > .wrap{padding-block:80px}
-.explore-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.explore-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+@media (max-width:1100px){.explore-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .xtile{position:relative;display:flex;flex-direction:column;gap:8px;padding:26px 26px 28px;text-decoration:none;color:inherit;transition:transform .4s var(--ease),box-shadow .4s var(--ease)}
 .xtile .eyebrow{color:var(--pink)}
 .xtile b{font-family:var(--f-display);font-weight:800;font-size:20px;line-height:1.2}
@@ -761,6 +762,7 @@ input[type=date].bk-input::-webkit-date-and-time-value{text-align:left}
       <li><a href="#bang-gia">Bảng giá</a></li>
       <li><a href="#uoc-tinh">Ước tính</a></li>
       <li><a href="#thiet-bi">Thiết bị</a></li>
+      <li><a href="lighting.html" class="lab-link">Thử ánh sáng</a></li>
       <li><a href="#chinh-sach">Chính sách</a></li>
       <li><a href="#lien-he">Liên hệ</a></li>
     </ul>
@@ -783,6 +785,7 @@ input[type=date].bk-input::-webkit-date-and-time-value{text-align:left}
       <a href="#bang-gia" data-close>Bảng giá</a>
       <a href="#uoc-tinh" data-close>Ước tính</a>
       <a href="#thiet-bi" data-close>Thiết bị</a>
+      <a href="lighting.html" class="lab-link">Thử ánh sáng 3D</a>
       <a href="#chinh-sach" data-close>Chính sách</a>
       <a href="#lien-he" data-close>Liên hệ</a>
     </nav>
@@ -948,6 +951,7 @@ input[type=date].bk-input::-webkit-date-and-time-value{text-align:left}
       <a class="xtile glass rv" href="#bang-gia"><span class="eyebrow">01 · Giá</span><b>Bảng giá &amp; ước tính</b><p>Giá theo giờ, theo gói và công cụ tính chi phí.</p><i aria-hidden="true">→</i></a>
       <a class="xtile glass rv" href="#thiet-bi"><span class="eyebrow">02 · Thiết bị</span><b>Đèn, phụ kiện &amp; backdrop</b><p>Thiết bị miễn phí, đèn cho thuê và 8 màu backdrop.</p><i aria-hidden="true">→</i></a>
       <a class="xtile glass rv" href="#chinh-sach"><span class="eyebrow">03 · Chính sách</span><b>Nội quy &amp; thanh toán</b><p>Check-in, huỷ lịch, OT, đặt cọc và tài khoản.</p><i aria-hidden="true">→</i></a>
+      <a class="xtile glass rv lab-link" href="lighting.html"><span class="eyebrow">04 · 3D · Beta</span><b>Thử ánh sáng Room A</b><p>Đặt đèn, softbox, máy ảnh trong Room A 3D và đo sáng ảo trước buổi chụp.</p><i aria-hidden="true">→</i></a>
     </div>
   </div>
 </section>
@@ -1540,7 +1544,7 @@ input[type=date].bk-input::-webkit-date-and-time-value{text-align:left}
           <div class="from">từ<b class="num">${r.from}</b>/ giờ</div></header>
         <dl class="specs">${r.specs.map(([k,v])=>`<div><dt>${k}</dt><dd class="num">${v}</dd></div>`).join('')}</dl>
         <div><p class="sub-h">Bao gồm</p><ul class="inc">${r.inc.map(x=>`<li>${x}</li>`).join('')}</ul></div>
-        <div class="room-price">${roomPrice(r.id)}<a class="btn btn-pink" href="#uoc-tinh">Ước tính chi phí</a></div>
+        <div class="room-price">${roomPrice(r.id)}<a class="btn btn-pink" href="#uoc-tinh">Ước tính chi phí</a>${r.id==='A' ? '<a class="btn btn-dark lab-link" href="lighting.html">Thử ánh sáng 3D →</a>' : ''}</div>
         <p class="note">${r.note}</p>
         <div class="plan-wrap">${plan(r)}</div>
       </div>
@@ -1989,7 +1993,7 @@ input[type=date].bk-input::-webkit-date-and-time-value{text-align:left}
     'Phòng & thời gian':'Room & time','Ngày':'Date','Giờ bắt đầu':'Start time','Thiết bị thuê thêm':'Extra equipment','Thông tin liên hệ':'Contact details',
     'Đèn công suất lớn khác vui lòng ghi vào phần ghi chú, studio sẽ báo giá riêng.':'For other high-power lights, add them to the notes and we will quote separately.',
     'Tên khách / công ty *':'Name / company *','Số điện thoại / Zalo *':'Phone / Zalo *','Email (không bắt buộc)':'Email (optional)','Ghi chú':'Notes',
-    'Yêu cầu xuất hóa đơn VAT':'Request a VAT invoice','Không':'No','Có':'Yes','Trang chủ':'Home','Ngôn ngữ':'Language','Thông tin xuất hóa đơn':'Invoice details',
+    'Yêu cầu xuất hóa đơn VAT':'Request a VAT invoice','Thử ánh sáng':'Lighting lab','Thử ánh sáng 3D':'3D lighting lab','Thử ánh sáng 3D →':'3D lighting lab →','Thử ánh sáng Room A':'Room A lighting lab','Đặt đèn, softbox, máy ảnh trong Room A 3D và đo sáng ảo trước buổi chụp.':'Place lights, softboxes and the camera in a 3D Room A and meter the light before your shoot.','Không':'No','Có':'Yes','Trang chủ':'Home','Ngôn ngữ':'Language','Thông tin xuất hóa đơn':'Invoice details',
     'Nhắn Zalo cho studio':'Message us on Zalo','Xem nội dung đơn':'View booking text','Đặt lịch với lựa chọn này →':'Book with these choices →',
     'Booking được xác nhận khi studio gọi lại và nhận cọc 50%. Giá tham khảo theo rate card 2026.':'A booking is confirmed once we call back and receive the 50% deposit. Indicative prices from the 2026 rate card.',
     'Phòng makeup & thay đồ':'Makeup & changing room','Gói thiết bị':'Equipment package','tối đa':'max',
@@ -2089,7 +2093,7 @@ input[type=date].bk-input::-webkit-date-and-time-value{text-align:left}
     'Phòng & thời gian':'룸 & 시간','Ngày':'날짜','Giờ bắt đầu':'시작 시간','Thiết bị thuê thêm':'추가 장비','Thông tin liên hệ':'연락처 정보',
     'Đèn công suất lớn khác vui lòng ghi vào phần ghi chú, studio sẽ báo giá riêng.':'그 외 고출력 조명은 메모란에 적어 주시면 별도로 견적을 드립니다.',
     'Tên khách / công ty *':'이름 / 회사명 *','Số điện thoại / Zalo *':'전화번호 / Zalo *','Email (không bắt buộc)':'이메일 (선택)','Ghi chú':'메모',
-    'Yêu cầu xuất hóa đơn VAT':'부가세 계산서 발행 요청','Không':'아니요','Có':'예','Trang chủ':'홈','Ngôn ngữ':'언어','Thông tin xuất hóa đơn':'계산서 정보',
+    'Yêu cầu xuất hóa đơn VAT':'부가세 계산서 발행 요청','Thử ánh sáng':'조명 시뮬레이터','Thử ánh sáng 3D':'3D 조명 시뮬레이터','Thử ánh sáng 3D →':'3D 조명 시뮬레이터 →','Thử ánh sáng Room A':'Room A 조명 시뮬레이터','Đặt đèn, softbox, máy ảnh trong Room A 3D và đo sáng ảo trước buổi chụp.':'3D Room A에 조명, 소프트박스, 카메라를 배치하고 촬영 전에 가상 측광을 해 보세요.','Không':'아니요','Có':'예','Trang chủ':'홈','Ngôn ngữ':'언어','Thông tin xuất hóa đơn':'계산서 정보',
     'Nhắn Zalo cho studio':'Zalo로 문의하기','Xem nội dung đơn':'예약 내용 보기','Đặt lịch với lựa chọn này →':'이 조건으로 예약하기 →',
     'Booking được xác nhận khi studio gọi lại và nhận cọc 50%. Giá tham khảo theo rate card 2026.':'스튜디오의 확인 연락과 50% 예약금 입금 후 예약이 확정됩니다. 2026 요금표 기준 참고 요금입니다.',
     'Phòng makeup & thay đồ':'메이크업 & 탈의실','Gói thiết bị':'장비 패키지','tối đa':'최대',
@@ -2214,6 +2218,12 @@ input[type=date].bk-input::-webkit-date-and-time-value{text-align:left}
     fr.title = 'Google Maps: C-Verse Studio'; fr.loading = 'lazy'; fr.referrerPolicy = 'no-referrer-when-downgrade'; fr.allowFullscreen = true;
     mf.replaceChildren(fr);
   }
+
+  // ---- 3D lighting lab lives on the GitHub site (its 12 MB room model is not published into the Claude artifact) ----
+  if(/claude/i.test(location.hostname)) document.addEventListener('click', e=>{
+    const a = e.target.closest('a.lab-link'); if(!a) return;
+    a.href = 'https://creatoryvn.github.io/cverse-studio/lighting.html'; a.target = '_blank'; a.rel = 'noopener';
+  }, true);
 
   // ---- mobile menu ----
   const drawer = document.getElementById('drawer'), menuBtn = document.getElementById('menuBtn');

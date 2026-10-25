@@ -1,0 +1,700 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Room A Lighting Lab</title>
+<meta property="og:title" content="Thử ánh sáng Room A · C-Verse Studio">
+<meta property="og:description" content="Đặt đèn, softbox và máy ảnh trong Room A 3D, đo sáng ảo trước buổi chụp.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zalando+Sans+Expanded:wght@700;800&family=Be+Vietnam+Pro:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: full-bleed 3D canvas; glass control panel on the left (bottom sheet on phones), exposure meter top-right,
+   camera preview bottom-right. Same palette as the C-Verse site. */
+:root{
+  --pink:#E5195E; --pink-soft:#FF4F8B; --ink:#1D1C1F; --ink-2:#29282C; --ink-3:#35343A; --paper:#F8F7F5; --muted:#A9A7AE;
+  --glass:linear-gradient(150deg,rgba(45,44,48,.82),rgba(29,28,31,.88)); --edge:rgba(255,255,255,.1);
+  --f-display:"Zalando Sans Expanded","Archivo","Arial Black",sans-serif; --f-body:"Be Vietnam Pro","Noto Sans KR",system-ui,sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--ink);color:var(--paper);font:14px/1.5 var(--f-body);-webkit-font-smoothing:antialiased;overflow:hidden}
+[hidden]{display:none!important}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--pink-soft);outline-offset:2px}
+
+#stage{position:fixed;inset:0}
+#stage canvas{display:block;width:100%;height:100%;touch-action:none}
+
+.bar{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;gap:12px;
+  padding:calc(10px + env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-right,0px)) 10px max(14px,env(safe-area-inset-left,0px));
+  background:rgba(29,28,31,.6);-webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%);border-bottom:1px solid var(--edge)}
+.back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13px;white-space:nowrap}
+.back:hover{color:var(--paper)}
+.ttl{font-family:var(--f-display);font-weight:800;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ttl em{font-style:normal;color:var(--pink)}
+.beta{font:600 10px var(--f-mono);letter-spacing:.1em;padding:2px 7px;border-radius:999px;border:1px solid var(--pink);color:var(--pink-soft)}
+.sp{flex:1}
+.seg{display:inline-flex;padding:3px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid var(--edge)}
+.seg button{border:0;background:none;padding:6px 12px;border-radius:999px;cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--paper);color:var(--ink)}
+.cta{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;border:0;cursor:pointer;text-decoration:none;font-weight:600;font-size:13px;color:#fff;
+  background:linear-gradient(135deg,#FF5C93,#E5195E 50%,#B70F4A);box-shadow:0 10px 24px -12px rgba(229,25,94,.8);white-space:nowrap}
+
+.panel{position:fixed;z-index:15;top:calc(64px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));bottom:12px;width:320px;
+  display:flex;flex-direction:column;border-radius:18px;background:var(--glass);border:1px solid var(--edge);
+  -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);box-shadow:0 24px 60px -30px rgba(0,0,0,.8);overflow:hidden}
+.panel-scroll{overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:18px;flex:1}
+.sec h3{margin:0 0 10px;font:600 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.row{display:flex;gap:8px;align-items:center}
+.row > *{min-width:0}
+select,.num{width:100%;padding:9px 10px;border-radius:10px;border:1px solid var(--edge);background:rgba(255,255,255,.06)}
+select option{background:var(--ink-2)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 12px;border-radius:10px;border:1px solid var(--edge);background:rgba(255,255,255,.08);cursor:pointer;font-weight:600;white-space:nowrap}
+.btn:hover{background:rgba(255,255,255,.14)}
+.btn.pink{background:var(--pink);border-color:var(--pink);color:#fff}
+.btn.danger{color:#FF8FA9}
+.list{display:flex;flex-direction:column;gap:6px}
+.item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid transparent;cursor:pointer;text-align:left;width:100%}
+.item:hover{background:rgba(255,255,255,.09)}
+.item[aria-selected="true"]{border-color:var(--pink);background:rgba(229,25,94,.14)}
+.item .dot{width:10px;height:10px;border-radius:50%;flex:none;box-shadow:0 0 10px currentColor}
+.item b{font-weight:600;font-size:13px;display:block}
+.item small{display:block;color:var(--muted);font-size:11.5px}
+.tag{font:600 10px var(--f-mono);padding:1px 6px;border-radius:999px;margin-left:auto;white-space:nowrap}
+.tag.free{background:rgba(255,255,255,.12)} .tag.rent{color:var(--pink-soft);border:1px solid var(--pink)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.field label output{color:var(--paper);font:600 12px var(--f-mono)}
+input[type=range]{width:100%;accent-color:var(--pink)}
+.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
+.chk input{accent-color:var(--pink);width:16px;height:16px}
+.note{font-size:11.5px;color:var(--muted);margin:0}
+.props{display:flex;flex-direction:column;gap:14px;padding:14px;border-radius:14px;background:rgba(0,0,0,.18)}
+.props h4{margin:0;font-family:var(--f-display);font-weight:800;font-size:15px}
+
+.meter{position:fixed;z-index:15;top:calc(64px + env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));width:280px;padding:14px 16px;border-radius:18px;
+  background:var(--glass);border:1px solid var(--edge);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);box-shadow:0 24px 60px -30px rgba(0,0,0,.8)}
+.meter .k{font:600 10.5px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.meter .big{font-family:var(--f-display);font-weight:800;font-size:34px;line-height:1.05;color:var(--paper)}
+.meter .big small{font-size:13px;font-family:var(--f-body);font-weight:600;color:var(--muted)}
+.meter .diff{font-weight:600;font-size:13px;margin-top:2px}
+.meter .diff.ok{color:#7BE0A8} .meter .diff.hi{color:#FFC36B} .meter .diff.lo{color:#7FB6FF}
+.meter ul{list-style:none;margin:10px 0 0;padding:10px 0 0;border-top:1px dashed var(--edge);display:grid;gap:4px;font-size:12px}
+.meter li{display:flex;justify-content:space-between;gap:8px}
+.meter li span:last-child{font-family:var(--f-mono);color:var(--muted)}
+.camset{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+.camset select{padding:6px 6px;font-size:12px}
+
+.pip{position:fixed;z-index:14;right:max(12px,env(safe-area-inset-right,0px));bottom:12px;width:300px;aspect-ratio:3/2;border-radius:14px;border:1px solid var(--edge);pointer-events:none;
+  box-shadow:0 20px 40px -20px rgba(0,0,0,.8)}
+.pip span{position:absolute;left:8px;top:6px;font:600 10px var(--f-mono);letter-spacing:.1em;background:rgba(0,0,0,.5);padding:2px 7px;border-radius:999px}
+.frame{position:fixed;z-index:13;pointer-events:none;border:2px solid rgba(255,255,255,.7);box-shadow:0 0 0 100vmax rgba(0,0,0,.55)}
+.frame::before,.frame::after{content:"";position:absolute;inset:33.33% 0;border-top:1px solid rgba(255,255,255,.22);border-bottom:1px solid rgba(255,255,255,.22)}
+.frame::after{inset:0 33.33%;border:0;border-left:1px solid rgba(255,255,255,.22);border-right:1px solid rgba(255,255,255,.22)}
+
+.hint{position:fixed;z-index:12;left:50%;bottom:16px;transform:translateX(-50%);font-size:12px;color:var(--muted);background:rgba(0,0,0,.45);padding:6px 12px;border-radius:999px;white-space:nowrap;pointer-events:none}
+.loading{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:var(--ink)}
+.loading div{text-align:center}
+.loading b{display:block;font-family:var(--f-display);font-size:22px;margin-bottom:10px}
+.bar-p{width:220px;height:4px;border-radius:2px;background:var(--ink-3);overflow:hidden;margin:0 auto}
+.bar-p i{display:block;height:100%;width:0;background:var(--pink);transition:width .2s}
+.toast{position:fixed;z-index:60;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);opacity:0;transition:all .2s;background:var(--paper);color:var(--ink);padding:9px 16px;border-radius:999px;font-weight:600;pointer-events:none}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.sheet-toggle{display:none}
+
+@media (max-width:860px){
+  .ttl .long,.back .long{display:none}
+  .panel{top:auto;left:0;right:0;bottom:0;width:auto;max-height:52vh;border-radius:18px 18px 0 0;padding-bottom:env(safe-area-inset-bottom,0px);transition:transform .3s}
+  .panel.closed{transform:translateY(calc(100% - 52px))}
+  .sheet-toggle{display:flex;justify-content:center;align-items:center;gap:8px;padding:12px;border:0;background:none;font-weight:600;cursor:pointer;border-bottom:1px solid var(--edge)}
+  .sheet-toggle::before{content:"";width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.3)}
+  .meter{top:calc(58px + env(safe-area-inset-top,0px));left:max(10px,env(safe-area-inset-left,0px));right:auto;width:min(250px,64vw);padding:10px 12px}
+  .meter .big{font-size:26px}
+  .meter ul{display:none}
+  .camset select{font-size:11px;padding:6px 3px}
+  .pip{width:40vw;bottom:calc(64px + env(safe-area-inset-bottom,0px));right:max(10px,env(safe-area-inset-right,0px))}
+  .hint{display:none}
+  .bar .lang-seg,.bar .beta,.bar .cta{display:none}
+  .bar{gap:8px}
+  .panel-only{display:flex!important}
+}
+.panel-only{display:none}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<header class="bar">
+  <a class="back" href="./" data-t="back">← <span class="long">C-Verse Studio</span></a>
+  <div class="ttl"><span data-t="title">Thử ánh sáng</span> <em>Room A</em></div>
+  <span class="beta">BETA</span>
+  <div class="sp"></div>
+  <div class="seg" role="group" aria-label="View"><button type="button" data-view="free" aria-pressed="true" data-t="vFree">Góc tự do</button><button type="button" data-view="cam" aria-pressed="false" data-t="vCam">Qua máy ảnh</button></div>
+  <div class="seg lang-seg" role="group" aria-label="Language"><button type="button" data-lang="vi">VI</button><button type="button" data-lang="en">EN</button><button type="button" data-lang="ko">KR</button></div>
+  <a class="cta" href="./#dat-lich">✦ <span data-t="book">Đặt lịch Room A</span></a>
+</header>
+
+<aside class="panel" id="panel">
+  <button class="sheet-toggle" type="button" id="sheetBtn" data-t="controls">Bảng điều khiển</button>
+  <div class="panel-scroll">
+    <section class="sec">
+      <h3 data-t="addLight">Thêm đèn</h3>
+      <div class="field"><select id="newFix" aria-label="Fixture"></select></div>
+      <div class="row" style="margin-top:8px"><select id="newMod" aria-label="Modifier"></select><button class="btn pink" type="button" id="addBtn" data-t="add">+ Thêm</button></div>
+    </section>
+    <section class="sec">
+      <h3 data-t="scene">Trong cảnh</h3>
+      <div class="list" id="list" role="listbox" aria-label="Scene"></div>
+    </section>
+    <section class="sec" id="propsSec"><div class="props" id="props"></div></section>
+    <section class="sec">
+      <h3 data-t="room">Phòng</h3>
+      <label class="chk"><input type="checkbox" id="house"> <span data-t="house">Bật đèn trần phòng (≈150 lux)</span></label>
+      <label class="chk" style="margin-top:8px"><input type="checkbox" id="assist" checked> <span data-t="assist">Làm sáng để dễ dựng cảnh (không tính vào đo sáng)</span></label>
+      <div class="row" style="margin-top:12px"><button class="btn" type="button" id="shareBtn" data-t="share">Lưu &amp; chép link</button><button class="btn" type="button" id="resetBtn" data-t="reset">Bố trí mẫu</button></div>
+      <div class="row panel-only" style="margin-top:12px;justify-content:space-between">
+        <div class="seg" role="group" aria-label="Language"><button type="button" data-lang="vi">VI</button><button type="button" data-lang="en">EN</button><button type="button" data-lang="ko">KR</button></div>
+        <a class="cta" href="./#dat-lich" data-t="book">Đặt lịch Room A</a>
+      </div>
+      <p class="note" style="margin-top:10px" data-t="disclaimer">Kết quả mang tính tham khảo (sai số khoảng ±1 stop). Thông số đèn lấy theo công bố của hãng; bóng đổ và ánh sáng phản xạ được mô phỏng gần đúng.</p>
+    </section>
+  </div>
+</aside>
+
+<div class="meter" id="meter" aria-live="polite">
+  <div class="k" data-t="meterK">Đo sáng tại mặt người mẫu</div>
+  <div class="big" id="mAp">f/—</div>
+  <div class="diff" id="mDiff"></div>
+  <div class="camset">
+    <select id="iso" aria-label="ISO"></select><select id="shutter" aria-label="Shutter"></select><select id="aperture" aria-label="Aperture"></select>
+  </div>
+  <ul id="mList"></ul>
+</div>
+<div class="pip" id="pip"><span data-t="pip">MÁY ẢNH</span></div>
+<div class="frame" id="frame" hidden></div>
+<div class="hint" data-t="hint">Kéo để xoay · cuộn/chụm để phóng to · bấm vào đèn để chọn và kéo mũi tên để di chuyển</div>
+<div class="loading" id="loading"><div><b data-t="loading">Đang tải Room A…</b><div class="bar-p"><i id="loadBar"></i></div><p class="note" id="loadTxt" style="margin-top:10px">0%</p></div></div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+
+const $ = id => document.getElementById(id);
+
+// ---------- language (shares the site's choice) ----------
+let LANG = 'vi'; try { const s = localStorage.getItem('cv-lang'); if (s === 'en' || s === 'ko') LANG = s; } catch (_) {}
+const T = {
+  back:['← C-Verse Studio','← C-Verse Studio','← C-Verse Studio'], title:['Thử ánh sáng','Lighting lab','조명 시뮬레이터'],
+  vFree:['Góc tự do','Free view','자유 시점'], vCam:['Qua máy ảnh','Camera view','카메라 시점'], book:['Đặt lịch Room A','Book Room A','Room A 예약'],
+  controls:['Bảng điều khiển','Controls','설정'], addLight:['Thêm đèn','Add a light','조명 추가'], add:['+ Thêm','+ Add','+ 추가'],
+  scene:['Trong cảnh','In the scene','장면 구성'], room:['Phòng','Room','룸'],
+  house:['Bật đèn trần phòng (≈150 lux)','Room ceiling lights on (≈150 lux)','천장 조명 켜기 (≈150 lux)'],
+  assist:['Làm sáng để dễ dựng cảnh (không tính vào đo sáng)','Brighten for easier setup (not metered)','세팅용 밝기 보정 (측광 제외)'],
+  share:['Lưu & chép link','Save & copy link','저장 & 링크 복사'], reset:['Bố trí mẫu','Sample setup','기본 세팅'],
+  disclaimer:['Kết quả mang tính tham khảo (sai số khoảng ±1 stop). Thông số đèn lấy theo công bố của hãng; bóng đổ và ánh sáng phản xạ được mô phỏng gần đúng.',
+    'Results are a guide (about ±1 stop). Light output follows manufacturer specs; shadows and bounce light are approximated.',
+    '참고용 결과입니다 (약 ±1 스톱 오차). 조명 출력은 제조사 사양 기준이며 그림자와 반사광은 근사치입니다.'],
+  meterK:['Đo sáng tại mặt người mẫu','Meter at the subject’s face','피사체 얼굴 측광'], pip:['MÁY ẢNH','CAMERA','카메라'],
+  hint:['Kéo để xoay · cuộn/chụm để phóng to · bấm vào đèn để chọn và kéo mũi tên để di chuyển','Drag to orbit · scroll/pinch to zoom · tap a light to select, drag the arrows to move it','드래그로 회전 · 스크롤/핀치로 확대 · 조명을 눌러 선택하고 화살표로 이동'],
+  loading:['Đang tải Room A…','Loading Room A…','Room A 불러오는 중…'],
+  suggest:['Khẩu độ đề xuất','Suggested aperture','권장 조리개'], correct:['Phơi sáng đúng','Correct exposure','적정 노출'],
+  over:['sáng hơn đề xuất','brighter than metered','측광보다 밝음'], under:['tối hơn đề xuất','darker than metered','측광보다 어두움'],
+  tooDark:['Quá tối — thêm đèn hoặc tăng công suất','Too dark — add light or raise power','너무 어둡습니다 — 조명을 추가하거나 출력을 올리세요'],
+  ambient:['Đèn trần','Ceiling lights','천장 조명'], power:['Công suất','Power','출력'], cct:['Nhiệt độ màu','Colour temperature','색온도'],
+  modifier:['Bộ tản sáng','Modifier','모디파이어'], height:['Độ cao','Height','높이'], aimSub:['Luôn hướng vào người mẫu','Always aim at the subject','항상 피사체 방향'],
+  yaw:['Xoay ngang','Pan','수평 회전'], tilt:['Nghiêng','Tilt','기울기'], del:['Xóa đèn','Remove light','조명 삭제'],
+  camera:['Máy ảnh Sony A7III','Sony A7III camera','Sony A7III 카메라'], focal:['Tiêu cự','Focal length','초점거리'],
+  model:['Người mẫu','Model','모델'], pose:['Tư thế','Pose','포즈'], stand:['Đứng','Standing','서기'], sit:['Ngồi ghế','Seated','앉기'],
+  facing:['Hướng mặt','Facing','방향'], mh:['Chiều cao','Height','키'], free:['Miễn phí','Free','무료'], rent:['Thuê thêm','Rental','대여'],
+  copied:['Đã chép link bố trí','Setup link copied','세팅 링크가 복사되었습니다'], selectHint:['Chọn một mục trong cảnh để chỉnh','Select an item to edit it','편집할 항목을 선택하세요'],
+  flashNote:['Đèn flash: hiển thị như ánh sáng đèn nháy tại tốc độ đang chọn.','Flash: shown as the burst exposure at the chosen shutter speed.','플래시: 선택한 셔터 속도의 발광 노출로 표시됩니다.'],
+  surcharge:['Đèn trên 1000W: phụ thu 50.000đ/đèn','Over 1000W: 50,000 VND surcharge','1000W 초과: 대당 50,000 VND 추가'],
+  noGL:['Trình duyệt này không hỗ trợ WebGL nên không hiển thị được phòng 3D.','This browser has no WebGL, so the 3D room cannot be shown.','이 브라우저는 WebGL을 지원하지 않아 3D 룸을 표시할 수 없습니다.']
+};
+const t = k => (T[k] || [k])[LANG === 'en' ? 1 : LANG === 'ko' ? 2 : 0];
+function applyLang(){
+  document.documentElement.lang = LANG;
+  document.querySelectorAll('[data-t]').forEach(el => { if (!el.dataset.base) el.dataset.base = el.innerHTML; el.textContent = t(el.dataset.t); });
+  document.querySelectorAll('[data-lang]').forEach(b => b.setAttribute('aria-pressed', b.dataset.lang === LANG));
+  if (LANG === 'ko' && !$('fontKo')) { const k = document.createElement('link'); k.id = 'fontKo'; k.rel = 'stylesheet'; k.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;800&display=swap'; document.head.appendChild(k); }
+  fillFixtureSelect(); renderList(); renderProps(); updateMeter();
+}
+document.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => { LANG = b.dataset.lang; try { localStorage.setItem('cv-lang', LANG); } catch (_) {} applyLang(); }));
+
+// ---------- studio gear (manufacturer figures; LED = lux at 1 m with standard reflector, flash = guide number m @ ISO100) ----------
+const FIX = {
+  dp600:  { name:'Godox DP600III',  kind:'flash', gn:87,  free:true },
+  dp1000: { name:'Godox DP1000III', kind:'flash', gn:102, free:true },
+  ef150:  { name:'Jinbei EF-150',   kind:'led', lux:6000,  cct:[5500,5500], free:true },
+  kino:   { name:'Kino light',      kind:'panel', lux:1500, cct:[5600,5600], free:true },
+  a200:   { name:'Amaran 200X',     kind:'led', lux:22000, cct:[2700,6500] },
+  a300c:  { name:'Amaran 300C',     kind:'led', lux:25000, cct:[2500,7500] },
+  ls300:  { name:'Aputure LS 300X', kind:'led', lux:30000, cct:[2700,6500] },
+  s400:   { name:'Aputure 400X',    kind:'led', lux:42000, cct:[2700,6500] },
+  ls600:  { name:'Aputure LS 600X', kind:'led', lux:60000, cct:[2700,6500] },
+  s1200:  { name:'Aputure 1200X',   kind:'led', lux:100000, cct:[2700,6500], big:true }
+};
+// beam = full angle; k = share of light reaching the subject axis compared with the bare reflector
+const MOD = {
+  bare:    { name:['Chóa tiêu chuẩn','Standard reflector','표준 반사갓'], beam:55,  k:1,    shape:'cone' },
+  qrp70:   { name:['Softbox Godox QR-P70','Softbox Godox QR-P70','소프트박스 Godox QR-P70'], beam:110, k:0.35, shape:'oct', size:0.7 },
+  tolifo:  { name:['Softbox Tolifo 90','Softbox Tolifo 90','소프트박스 Tolifo 90'], beam:115, k:0.33, shape:'oct', size:0.9 },
+  strip:   { name:['Softbox strip 35×160','Strip softbox 35×160','스트립 소프트박스 35×160'], beam:100, k:0.3, shape:'strip' },
+  lantern: { name:['Lantern 65 cm','Lantern 65 cm','랜턴 65 cm'], beam:300, k:0.25, shape:'ball', size:0.65 }
+};
+const C = 250;                                   // incident-meter calibration constant
+const ISOS = [100,200,400,800,1600,3200], SHUT = [30,60,100,125,160,200,250], APS = [1.8,2,2.8,4,5.6,8,11,16];
+const FLASH_STEPS = [0,1,2,3,4,5,6,7];           // 1/1 .. 1/128
+const ROOM = { x0:-4.3, x1:4.3, z0:-3.8, z1:3.8, h:3.9 };
+
+// ---------- renderer / scene ----------
+const stage = $('stage');
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' }); }
+catch (e) { $('loading').innerHTML = `<div><b>WebGL</b><p class="note">${t('noGL')}</p></div>`; throw e; }
+const mobile = matchMedia('(max-width:860px)').matches;
+renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.5 : 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setScissorTest(true);
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b0b0c);
+const viewCam = new THREE.PerspectiveCamera(50, 1, 0.05, 60);
+viewCam.position.set(2.9, 2.7, 3.0);
+const orbit = new OrbitControls(viewCam, renderer.domElement);
+orbit.target.set(-1.6, 1, 0); orbit.enableDamping = true; orbit.maxPolarAngle = Math.PI * 0.49;
+orbit.minDistance = 0.6; orbit.maxDistance = 14;
+const tc = new TransformControls(viewCam, renderer.domElement);
+tc.setSize(0.8); scene.add(tc);
+tc.addEventListener('dragging-changed', e => { orbit.enabled = !e.value; if (!e.value) save(); });
+tc.addEventListener('objectChange', () => { constrain(tc.object); refresh(); });
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x555048, 0);   // ceiling lights (metered)
+const assistLight = new THREE.HemisphereLight(0xffffff, 0x404040, 0); // setup helper (not metered)
+scene.add(hemi, assistLight);
+
+// ---------- helpers ----------
+function kelvinRGB(k){
+  const t = k / 100; let r, g, b;
+  if (t <= 66) { r = 255; g = 99.47 * Math.log(t) - 161.12; b = t <= 19 ? 0 : 138.52 * Math.log(t - 10) - 305.04; }
+  else { r = 329.7 * Math.pow(t - 60, -0.1332); g = 288.12 * Math.pow(t - 60, -0.0755); b = 255; }
+  const c = v => Math.min(255, Math.max(0, v)) / 255;
+  return new THREE.Color(c(r), c(g), c(b));
+}
+const stops = n => ['1/1','1/2','1/4','1/8','1/16','1/32','1/64','1/128'][n];
+const fmtN = n => n >= 10 ? n.toFixed(0) : n.toFixed(1);
+function toast(msg){ const el = $('toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 1800); }
+const matStd = (c, r = 0.7, m = 0) => new THREE.MeshStandardMaterial({ color:c, roughness:r, metalness:m });
+
+// ---------- subject (mannequin) ----------
+const subject = { group:new THREE.Group(), pose:'stand', h:1.72, rot:90 };
+const skin = matStd(0xbdb6ae, 0.65);
+function buildMannequin(){
+  const g = subject.group; g.clear();
+  const s = subject.h / 1.75, cap = (r, l, x, y, z, rx = 0, rz = 0) => { const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, l, 4, 10), skin); m.position.set(x, y, z); m.rotation.set(rx, 0, rz); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
+  if (subject.pose === 'stand') {
+    cap(0.075, 0.72, -0.1, 0.45, 0); cap(0.075, 0.72, 0.1, 0.45, 0);
+    const torso = cap(0.17, 0.42, 0, 1.13, 0); torso.scale.z = 0.62;
+    cap(0.05, 0.55, -0.27, 1.12, 0, 0, 0.08); cap(0.05, 0.55, 0.27, 1.12, 0, 0, -0.08);
+    cap(0.05, 0.08, 0, 1.47, 0);
+  } else {
+    const stool = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.62, 20), matStd(0x222225, 0.5, 0.3)); stool.position.y = 0.31; stool.castShadow = stool.receiveShadow = true; g.add(stool);
+    cap(0.075, 0.36, -0.1, 0.69, 0.2, Math.PI / 2); cap(0.075, 0.36, 0.1, 0.69, 0.2, Math.PI / 2);
+    cap(0.07, 0.38, -0.1, 0.3, 0.42); cap(0.07, 0.38, 0.1, 0.3, 0.42);
+    const torso = cap(0.17, 0.42, 0, 1.0, -0.02); torso.scale.z = 0.62;
+    cap(0.05, 0.5, -0.27, 0.98, 0.04, 0.25, 0.08); cap(0.05, 0.5, 0.27, 0.98, 0.04, 0.25, -0.08);
+    cap(0.05, 0.08, 0, 1.33, -0.02);
+  }
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 24, 18), skin); head.scale.set(0.9, 1.1, 1); head.position.set(0, faceY() / s, 0); head.castShadow = head.receiveShadow = true; g.add(head);
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.04, 8), skin); nose.rotation.x = Math.PI / 2; nose.position.set(0, faceY() / s, 0.11); g.add(nose);
+  g.scale.setScalar(s);
+  g.rotation.y = THREE.MathUtils.degToRad(subject.rot);
+  g.userData.kind = 'subject';
+}
+const faceY = () => (subject.pose === 'stand' ? 1.62 : 1.48) * subject.h / 1.75;
+function facePoint(){ const p = subject.group.position.clone(); p.y = faceY(); return p; }
+function faceNormal(){ return new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), subject.group.rotation.y); }
+scene.add(subject.group);
+
+// ---------- camera (Sony A7III, full frame 36×24) ----------
+const shootCam = new THREE.PerspectiveCamera(40, 1.5, 0.05, 40);
+const camRig = { group:new THREE.Group(), f:50, iso:100, sh:125, ap:8, aim:true, yaw:0, tilt:0 };
+(function buildCamera(){
+  const g = camRig.group, dark = matStd(0x151517, 0.45, 0.2);
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.095, 0.075), dark); const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.1, 20), dark);
+  lens.rotation.x = Math.PI / 2; lens.position.z = -0.08;
+  const head = new THREE.Group(); head.add(body, lens); head.name = 'camHead'; g.add(head);
+  for (let i = 0; i < 3; i++) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1, 6), dark); leg.name = 'leg'; leg.userData.a = i * Math.PI * 2 / 3; g.add(leg); }
+  g.userData.kind = 'camera';
+})();
+const camHelper = new THREE.CameraHelper(shootCam); camHelper.material.color = new THREE.Color(0xff4f8b);
+scene.add(camRig.group, camHelper);
+function layoutTripod(group, height){
+  group.children.filter(c => c.name === 'leg').forEach(leg => {
+    const a = leg.userData.a, spread = 0.32, foot = new THREE.Vector3(Math.cos(a) * spread, -height, Math.sin(a) * spread);
+    const mid = foot.clone().multiplyScalar(0.5); leg.position.copy(mid);
+    leg.scale.y = foot.length(); leg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), foot.clone().normalize().negate());
+  });
+}
+
+// ---------- lights ----------
+const lights = [];     // { id, fix, mod, p(0..100 or flash step), cct, aim, yaw, tilt, group, head, light, front }
+let lid = 0;
+const standMat = matStd(0x2a2a2d, 0.5, 0.4), headMat = matStd(0x1a1a1c, 0.4, 0.3);
+function addLight(o){
+  const L = Object.assign({ id:++lid, mod:'bare', p:o && FIX[o.fix] && FIX[o.fix].kind === 'flash' ? 3 : 50, cct:5600, aim:true, yaw:0, tilt:-15 }, o);
+  const g = new THREE.Group(); g.userData.kind = 'light'; g.userData.L = L;
+  const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 1, 8), standMat); stand.name = 'stand'; stand.castShadow = true; g.add(stand);
+  for (let i = 0; i < 3; i++) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 1, 6), standMat); leg.name = 'leg'; leg.userData.a = i * Math.PI * 2 / 3; g.add(leg); }
+  const head = new THREE.Group(); g.add(head);
+  g.position.set(o.x, o.y, o.z);
+  L.group = g; L.head = head;
+  buildHead(L);
+  scene.add(g); lights.push(L);
+  return L;
+}
+function buildHead(L){
+  const head = L.head; head.clear();
+  if (L.light) { scene.remove(L.light.target); }
+  const fix = FIX[L.fix], mod = MOD[L.mod];
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.24, 16), headMat); body.rotation.x = Math.PI / 2; body.position.z = 0.12; body.castShadow = true; head.add(body);
+  const emit = new THREE.MeshStandardMaterial({ color:0x111111, emissive:0xffffff, emissiveIntensity:1, roughness:1, side:THREE.DoubleSide });
+  let front;
+  if (fix.kind === 'panel') {
+    const box = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.3, 0.08), headMat); box.castShadow = true; head.add(box);
+    front = new THREE.Mesh(new THREE.PlaneGeometry(0.56, 0.24), emit); front.position.z = -0.042; front.rotation.y = Math.PI; head.add(front);
+  } else if (mod.shape === 'cone') {
+    const refl = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.06, 0.12, 20, 1, true), matStd(0x8a8a8f, 0.3, 0.8)); refl.rotation.x = -Math.PI / 2; refl.position.z = -0.05; head.add(refl);
+    front = new THREE.Mesh(new THREE.CircleGeometry(0.055, 20), emit); front.position.z = -0.02; front.rotation.y = Math.PI; head.add(front);
+  } else if (mod.shape === 'oct') {
+    const r = mod.size / 2, sb = new THREE.Mesh(new THREE.CylinderGeometry(r, 0.1, 0.42, 8, 1, true), matStd(0x0c0c0d, 0.8)); sb.rotation.x = -Math.PI / 2; sb.position.z = -0.21; sb.castShadow = true; head.add(sb);
+    front = new THREE.Mesh(new THREE.CircleGeometry(r * 0.98, 8), emit); front.position.z = -0.42; front.rotation.y = Math.PI; head.add(front);
+  } else if (mod.shape === 'strip') {
+    const sb = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.6, 0.28), matStd(0x0c0c0d, 0.8)); sb.position.z = -0.16; sb.castShadow = true; head.add(sb);
+    front = new THREE.Mesh(new THREE.PlaneGeometry(0.33, 1.56), emit); front.position.z = -0.302; front.rotation.y = Math.PI; head.add(front);
+  } else {
+    front = new THREE.Mesh(new THREE.SphereGeometry(mod.size / 2, 24, 16), emit); front.position.z = -0.38; head.add(front);
+  }
+  L.front = front;
+  const isBall = mod.shape === 'ball' && fix.kind !== 'panel';
+  const light = isBall ? new THREE.PointLight(0xffffff, 1, 0, 2) : new THREE.SpotLight(0xffffff, 1, 0, 1, 0.5, 2);
+  light.castShadow = !isBall;
+  if (light.isSpotLight) {
+    const beam = fix.kind === 'panel' ? 100 : mod.beam;
+    light.angle = THREE.MathUtils.degToRad(Math.min(beam, 170) / 2);
+    light.penumbra = mod.shape === 'cone' && fix.kind !== 'panel' ? 0.35 : 1;
+    light.shadow.mapSize.set(mobile ? 512 : 1024, mobile ? 512 : 1024);
+    light.shadow.bias = -0.0004; light.shadow.normalBias = 0.02; light.shadow.camera.near = 0.1; light.shadow.camera.far = 14;
+    scene.add(light.target);
+  }
+  light.position.copy(front.position);
+  head.add(light); L.light = light;
+}
+function layoutLight(L){
+  const g = L.group, y = g.position.y;
+  const stand = g.children.find(c => c.name === 'stand'); stand.scale.y = y; stand.position.y = -y / 2;
+  layoutTripod(g, y);
+  const target = L.aim ? facePoint() : g.position.clone().add(new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(THREE.MathUtils.degToRad(L.tilt), THREE.MathUtils.degToRad(L.yaw), 0, 'YXZ')));
+  L.head.lookAt(target);  // head's -Z faces the target because geometry points along -Z after the flip below
+  L.head.rotateY(Math.PI);
+  if (L.light.isSpotLight) { L.light.target.position.copy(target); L.light.target.updateMatrixWorld(); }
+}
+// Luminous intensity (cd) on the beam axis.
+// LED: lux@1m × dimmer × modifier loss.
+// Flash: a burst that gives f-number N = GN·√(ISO/100·p·k)/d is drawn as the steady light that would give the
+// same exposure at the chosen shutter time t: E·d² = GN²·p·k·C/(100·t).
+function cd(L){
+  const fix = FIX[L.fix], k = fix.kind === 'panel' ? 1 : MOD[L.mod].k;
+  if (fix.kind === 'flash') return fix.gn * fix.gn * Math.pow(2, -L.p) * k * C * camRig.sh / 100;
+  return fix.lux * (L.p / 100) * k;
+}
+
+// ---------- room ----------
+const loadMgr = new THREE.LoadingManager();
+const draco = new DRACOLoader(); draco.setDecoderPath('assets/draco/'); draco.setDecoderConfig({ type:'js' });
+const gltf = new GLTFLoader(loadMgr); gltf.setDRACOLoader(draco);
+gltf.load('assets/3d/room-a.glb', g => {
+  const room = g.scene;
+  room.traverse(o => {
+    if (!o.isMesh) return;
+    o.receiveShadow = true;
+    o.castShadow = o.geometry.boundingSphere ? o.geometry.boundingSphere.radius < 3 : true;
+    const ms = Array.isArray(o.material) ? o.material : [o.material];
+    ms.forEach(m => { if (m && m.isMeshStandardMaterial) { m.envMapIntensity = 0; if (m.emissive) m.emissive.setScalar(0); } });
+    if (o.name.startsWith('Plane014') || o.name.startsWith('Plane.014')) o.material = matStd(0xf2f1ee, 0.9);
+  });
+  scene.add(room);
+  $('loading').hidden = true;
+  start();
+}, e => { if (e.total) { const p = Math.round(e.loaded / e.total * 100); $('loadBar').style.width = p + '%'; $('loadTxt').textContent = p + '%'; } },
+err => { $('loadTxt').textContent = 'Không tải được mô hình phòng: ' + err.message; });
+
+// ---------- state ----------
+function sample(){
+  lights.splice(0).forEach(L => { scene.remove(L.group); if (L.light.target) scene.remove(L.light.target); });
+  subject.pose = 'stand'; subject.h = 1.72; subject.rot = 90; subject.group.position.set(-2.4, 0, -0.1); buildMannequin();
+  Object.assign(camRig, { f:50, iso:100, sh:125, ap:8, aim:true }); camRig.group.position.set(1.0, 1.45, -0.1);
+  addLight({ fix:'dp600', mod:'qrp70', p:3, x:-0.9, y:2.2, z:1.5 });
+  addLight({ fix:'a200', mod:'lantern', p:35, cct:5600, x:-0.8, y:1.7, z:-1.7 });
+  addLight({ fix:'ls300', mod:'bare', p:40, cct:5600, x:-3.7, y:2.6, z:-1.6 });
+}
+function serialize(){
+  return { v:1, l:lights.map(L => [L.fix, L.mod, +L.group.position.x.toFixed(2), +L.group.position.y.toFixed(2), +L.group.position.z.toFixed(2), L.p, L.cct, L.aim ? 1 : 0, L.yaw, L.tilt]),
+    c:[+camRig.group.position.x.toFixed(2), +camRig.group.position.y.toFixed(2), +camRig.group.position.z.toFixed(2), camRig.f, camRig.iso, camRig.sh, camRig.ap],
+    s:[+subject.group.position.x.toFixed(2), +subject.group.position.z.toFixed(2), subject.rot, subject.h, subject.pose], h:$('house').checked ? 1 : 0 };
+}
+function restore(d){
+  lights.splice(0).forEach(L => { scene.remove(L.group); if (L.light.target) scene.remove(L.light.target); });
+  subject.group.position.set(d.s[0], 0, d.s[1]); subject.rot = d.s[2]; subject.h = d.s[3]; subject.pose = d.s[4]; buildMannequin();
+  camRig.group.position.set(d.c[0], d.c[1], d.c[2]); [camRig.f, camRig.iso, camRig.sh, camRig.ap] = d.c.slice(3);
+  d.l.forEach(a => { if (FIX[a[0]] && MOD[a[1]]) addLight({ fix:a[0], mod:a[1], x:a[2], y:a[3], z:a[4], p:a[5], cct:a[6], aim:!!a[7], yaw:a[8], tilt:a[9] }); });
+  $('house').checked = !!d.h;
+}
+const enc = o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const dec = s => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
+function save(){ try { localStorage.setItem('cv-lightlab', JSON.stringify(serialize())); } catch (_) {} }
+function load(){
+  const h = location.hash.slice(1);
+  if (h.startsWith('s-')) { try { restore(dec(h.slice(2))); return; } catch (_) {} }
+  try { const s = localStorage.getItem('cv-lightlab'); if (s) { restore(JSON.parse(s)); return; } } catch (_) {}
+  sample();
+}
+
+// ---------- selection & panels ----------
+let selected = null;   // { kind:'light'|'camera'|'subject', L? }
+function select(sel){
+  selected = sel;
+  const obj = !sel ? null : sel.kind === 'light' ? sel.L.group : sel.kind === 'camera' ? camRig.group : subject.group;
+  if (obj) { tc.attach(obj); tc.showY = sel.kind !== 'subject'; } else tc.detach();
+  renderList(); renderProps();
+}
+function renderList(){
+  const items = [{ kind:'subject', label:t('model'), sub:subject.pose === 'stand' ? t('stand') : t('sit'), color:'#bdb6ae' },
+                 { kind:'camera', label:'Sony A7III', sub:`${camRig.f} mm · ISO ${camRig.iso}`, color:'#ff4f8b' }]
+    .concat(lights.map(L => ({ kind:'light', L, label:FIX[L.fix].name, sub:(FIX[L.fix].kind === 'flash' ? stops(L.p) : L.p + '%') + ' · ' + (FIX[L.fix].kind === 'panel' ? 'Kino' : MOD[L.mod].name[LANG === 'en' ? 1 : LANG === 'ko' ? 2 : 0]), color:'#' + kelvinRGB(L.cct).getHexString(), tag:FIX[L.fix].free })));
+  $('list').innerHTML = items.map((it, i) => `<button class="item" role="option" type="button" data-i="${i}" aria-selected="${!!selected && selected.kind === it.kind && selected.L === it.L}">
+    <span class="dot" style="color:${it.color};background:${it.color}"></span><span><b>${it.label}</b><small>${it.sub}</small></span>
+    ${it.kind === 'light' ? `<span class="tag ${it.tag ? 'free' : 'rent'}">${it.tag ? t('free') : t('rent')}</span>` : ''}</button>`).join('');
+  $('list').querySelectorAll('.item').forEach(b => b.addEventListener('click', () => { const it = items[+b.dataset.i]; select({ kind:it.kind, L:it.L }); }));
+}
+function slider(id, label, min, max, step, val, fmt){ return `<div class="field"><label for="${id}">${label}<output id="${id}O">${fmt(val)}</output></label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"></div>`; }
+function renderProps(){
+  const box = $('props');
+  if (!selected) { box.innerHTML = `<p class="note">${t('selectHint')}</p>`; return; }
+  if (selected.kind === 'light') {
+    const L = selected.L, fix = FIX[L.fix], flash = fix.kind === 'flash';
+    box.innerHTML = `<h4>${fix.name}</h4>
+      ${flash ? slider('pPow', t('power'), 0, 7, 1, 7 - L.p, v => stops(7 - v)) : slider('pPow', t('power'), 1, 100, 1, L.p, v => v + '%')}
+      ${!flash && fix.cct[0] !== fix.cct[1] ? slider('pCct', t('cct'), fix.cct[0], fix.cct[1], 100, L.cct, v => v + 'K') : ''}
+      ${fix.kind !== 'panel' ? `<div class="field"><label for="pMod">${t('modifier')}</label><select id="pMod">${Object.entries(MOD).map(([k, m]) => `<option value="${k}"${k === L.mod ? ' selected' : ''}>${m.name[LANG === 'en' ? 1 : LANG === 'ko' ? 2 : 0]}</option>`).join('')}</select></div>` : ''}
+      ${slider('pH', t('height'), 0.4, 3.6, 0.05, L.group.position.y, v => (+v).toFixed(2) + ' m')}
+      <label class="chk"><input type="checkbox" id="pAim"${L.aim ? ' checked' : ''}> ${t('aimSub')}</label>
+      <div id="pManual"${L.aim ? ' hidden' : ''}>${slider('pYaw', t('yaw'), -180, 180, 1, L.yaw, v => v + '°')}${slider('pTilt', t('tilt'), -90, 45, 1, L.tilt, v => v + '°')}</div>
+      ${flash ? `<p class="note">${t('flashNote')}</p>` : ''}${fix.big ? `<p class="note">${t('surcharge')}</p>` : ''}
+      <button class="btn danger" type="button" id="pDel">${t('del')}</button>`;
+    const on = (id, fn) => { const el = $(id); if (el) el.addEventListener('input', () => { fn(el); const o = $(id + 'O'); if (o && el.type === 'range') o.textContent = id === 'pPow' && flash ? stops(7 - el.value) : id === 'pH' ? (+el.value).toFixed(2) + ' m' : el.value + (id === 'pCct' ? 'K' : id === 'pPow' ? '%' : '°'); refresh(); save(); renderList(); }); };
+    on('pPow', el => L.p = flash ? 7 - +el.value : +el.value);
+    on('pCct', el => L.cct = +el.value);
+    on('pMod', el => { L.mod = el.value; buildHead(L); });
+    on('pH', el => L.group.position.y = +el.value);
+    on('pAim', el => { L.aim = el.checked; $('pManual').hidden = L.aim; });
+    on('pYaw', el => L.yaw = +el.value); on('pTilt', el => L.tilt = +el.value);
+    $('pDel').addEventListener('click', () => { scene.remove(L.group); if (L.light.target) scene.remove(L.light.target); lights.splice(lights.indexOf(L), 1); select(null); refresh(); save(); });
+  } else if (selected.kind === 'camera') {
+    box.innerHTML = `<h4>${t('camera')}</h4>${slider('cF', t('focal'), 16, 135, 1, camRig.f, v => v + ' mm')}${slider('cH', t('height'), 0.4, 2.4, 0.05, camRig.group.position.y, v => (+v).toFixed(2) + ' m')}`;
+    $('cF').addEventListener('input', e => { camRig.f = +e.target.value; $('cFO').textContent = camRig.f + ' mm'; refresh(); save(); renderList(); });
+    $('cH').addEventListener('input', e => { camRig.group.position.y = +e.target.value; $('cHO').textContent = (+e.target.value).toFixed(2) + ' m'; refresh(); save(); });
+  } else {
+    box.innerHTML = `<h4>${t('model')}</h4>
+      <div class="field"><label>${t('pose')}</label><div class="seg"><button type="button" data-pose="stand" aria-pressed="${subject.pose === 'stand'}">${t('stand')}</button><button type="button" data-pose="sit" aria-pressed="${subject.pose === 'sit'}">${t('sit')}</button></div></div>
+      ${slider('sRot', t('facing'), -180, 180, 5, subject.rot, v => v + '°')}${slider('sH', t('mh'), 1.5, 1.95, 0.01, subject.h, v => (+v).toFixed(2) + ' m')}`;
+    box.querySelectorAll('[data-pose]').forEach(b => b.addEventListener('click', () => { subject.pose = b.dataset.pose; buildMannequin(); renderProps(); renderList(); refresh(); save(); }));
+    $('sRot').addEventListener('input', e => { subject.rot = +e.target.value; $('sRotO').textContent = subject.rot + '°'; subject.group.rotation.y = THREE.MathUtils.degToRad(subject.rot); refresh(); save(); });
+    $('sH').addEventListener('input', e => { subject.h = +e.target.value; $('sHO').textContent = subject.h.toFixed(2) + ' m'; buildMannequin(); refresh(); save(); });
+  }
+}
+function fillFixtureSelect(){
+  const keep = $('newFix').value || 'dp600', keepM = $('newMod').value || 'qrp70';
+  $('newFix').innerHTML = Object.entries(FIX).map(([k, f]) => `<option value="${k}">${f.name} · ${f.free ? t('free') : t('rent')}</option>`).join('');
+  $('newMod').innerHTML = Object.entries(MOD).map(([k, m]) => `<option value="${k}">${m.name[LANG === 'en' ? 1 : LANG === 'ko' ? 2 : 0]}</option>`).join('');
+  $('newFix').value = keep; $('newMod').value = keepM;
+}
+function fillCamSelects(){
+  $('iso').innerHTML = ISOS.map(v => `<option value="${v}">ISO ${v}</option>`).join('');
+  $('shutter').innerHTML = SHUT.map(v => `<option value="${v}">1/${v}s</option>`).join('');
+  $('aperture').innerHTML = APS.map(v => `<option value="${v}">f/${v}</option>`).join('');
+  $('iso').value = camRig.iso; $('shutter').value = camRig.sh; $('aperture').value = camRig.ap;
+  [['iso','iso'],['shutter','sh'],['aperture','ap']].forEach(([id, k]) => $(id).onchange = () => { camRig[k] = +$(id).value; refresh(); save(); renderList(); });
+}
+
+// ---------- constrain, aim, meter ----------
+function constrain(obj){
+  const p = obj.position;
+  p.x = THREE.MathUtils.clamp(p.x, ROOM.x0, ROOM.x1); p.z = THREE.MathUtils.clamp(p.z, ROOM.z0, ROOM.z1);
+  if (obj === subject.group) p.y = 0;
+  else if (obj === camRig.group) p.y = THREE.MathUtils.clamp(p.y, 0.4, 2.4);
+  else p.y = THREE.MathUtils.clamp(p.y, 0.4, 3.6);
+  if (selected && selected.kind !== 'subject') { const h = $(selected.kind === 'light' ? 'pH' : 'cH'); if (h) { h.value = p.y; const o = $(h.id + 'O'); if (o) o.textContent = p.y.toFixed(2) + ' m'; } }
+}
+function layoutCamera(){
+  const g = camRig.group, y = g.position.y; layoutTripod(g, y);
+  const target = facePoint(); target.y = Math.min(target.y, faceY());
+  const head = g.getObjectByName('camHead'); head.lookAt(target);
+  shootCam.position.copy(g.position); shootCam.lookAt(target);
+  shootCam.fov = THREE.MathUtils.radToDeg(2 * Math.atan(12 / camRig.f)); shootCam.aspect = 1.5; shootCam.updateProjectionMatrix();
+  camHelper.update();
+}
+let meterE = 0;
+function meterAt(){
+  const P = facePoint(), N = faceNormal(), rows = [];
+  let E = 0;
+  lights.forEach(L => {
+    const lp = new THREE.Vector3(); L.front.getWorldPosition(lp);
+    const v = lp.clone().sub(P), d = Math.max(0.3, v.length()); v.normalize();
+    const dome = Math.max(0, (1 + v.dot(N)) / 2);   // incident dome facing the camera axis of the subject
+    let beam = 1;
+    if (L.light.isSpotLight) {
+      const tgt = L.light.target.position.clone().sub(lp).normalize(), ang = tgt.angleTo(v.clone().negate()), half = L.light.angle, inner = half * (1 - L.light.penumbra);
+      beam = ang <= inner ? 1 : ang >= half ? 0.04 : 1 - (ang - inner) / (half - inner) * 0.96;
+    }
+    const e = cd(L) * dome * beam / (d * d);
+    E += e; rows.push([FIX[L.fix].name, e]);
+  });
+  if ($('house').checked) { E += 75; rows.push([t('ambient'), 75]); }
+  return { E, rows };
+}
+function updateMeter(){
+  if (!lights) return;
+  const { E, rows } = meterAt(); meterE = E;
+  const t_ = 1 / camRig.sh, S = camRig.iso;
+  const N = Math.sqrt(E * t_ * S / C);
+  if (N < 1) { $('mAp').innerHTML = `f/&lt;1 <small>${t('suggest')}</small>`; $('mDiff').className = 'diff lo'; $('mDiff').textContent = t('tooDark'); }
+  else {
+    $('mAp').innerHTML = `f/${fmtN(N)} <small>${t('suggest')}</small>`;
+    const dv = 2 * Math.log2(N / camRig.ap);   // + means the scene is brighter than the set aperture expects
+    const el = $('mDiff');
+    if (Math.abs(dv) < 0.34) { el.className = 'diff ok'; el.textContent = '✓ ' + t('correct') + ` @ f/${camRig.ap}`; }
+    else { el.className = 'diff ' + (dv > 0 ? 'hi' : 'lo'); el.textContent = `${dv > 0 ? '+' : '−'}${Math.abs(dv).toFixed(1)} stop ${dv > 0 ? t('over') : t('under')} (f/${camRig.ap})`; }
+  }
+  const max = Math.max(1, ...rows.map(r => r[1]));
+  $('mList').innerHTML = rows.map(([n, e]) => `<li><span>${n}</span><span>${Math.round(e).toLocaleString('vi-VN')} lux${rows.length > 1 && e === max ? ' ★' : ''}</span></li>`).join('') + `<li><span><b>Σ</b></span><span><b>${Math.round(E).toLocaleString('vi-VN')} lux</b></span></li>`;
+}
+
+// ---------- apply everything to the 3D scene ----------
+function refresh(){
+  lights.forEach(L => {
+    layoutLight(L);
+    const c = kelvinRGB(FIX[L.fix].kind === 'flash' ? 5600 : L.cct);
+    L.light.color.copy(c); L.light.intensity = cd(L);
+  });
+  const exp = Math.PI * (1 / camRig.sh) * camRig.iso / (C * camRig.ap * camRig.ap);
+  renderer.toneMappingExposure = exp;
+  // the modifier faces glow in proportion to their output, but never clip to a flat white blob
+  lights.forEach(L => { L.front.material.emissive.copy(L.light.color); L.front.material.emissiveIntensity = (1.2 + 1.8 * Math.min(1, cd(L) * exp * 20)) / exp; });
+  hemi.intensity = $('house').checked ? 150 / Math.PI : 0;
+  // setup helper: a fixed on-screen brightness whatever the exposure, so the room stays readable while placing gear
+  assistLight.intensity = $('assist').checked ? 0.35 / exp : 0;
+  // only the four brightest lights cast shadows, to keep phones fluid
+  [...lights].sort((a, b) => cd(b) - cd(a)).forEach((L, i) => { if (L.light.isSpotLight) L.light.castShadow = i < 4; });
+  layoutCamera(); updateMeter();
+}
+
+// ---------- picking ----------
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5 || tc.dragging) return;
+  if (view === 'cam') return;
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+  ray.setFromCamera(ndc, viewCam);
+  const targets = [subject.group, camRig.group, ...lights.map(L => L.group)];
+  const hit = ray.intersectObjects(targets, true)[0];
+  if (!hit) { select(null); return; }
+  let o = hit.object; while (o && !o.userData.kind) o = o.parent;
+  if (!o) return;
+  select(o.userData.kind === 'light' ? { kind:'light', L:o.userData.L } : { kind:o.userData.kind });
+});
+
+// ---------- views & render loop ----------
+let view = 'free';
+document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => { view = b.dataset.view; document.querySelectorAll('[data-view]').forEach(x => x.setAttribute('aria-pressed', x === b)); tc.visible = view === 'free'; layout(); }));
+function layout(){
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  viewCam.aspect = w / h; viewCam.updateProjectionMatrix();
+  $('pip').hidden = view !== 'free';
+  const fr = $('frame');
+  if (view === 'cam') { const box = camBox(); Object.assign(fr.style, { left:box.x + 'px', top:(h - box.y - box.h) + 'px', width:box.w + 'px', height:box.h + 'px' }); fr.hidden = false; }
+  else fr.hidden = true;
+}
+function camBox(){
+  const w = innerWidth, h = innerHeight, top = 70, bottom = mobile ? 70 : 20, left = mobile ? 10 : 350, right = mobile ? 10 : 310;
+  const aw = w - left - right, ah = h - top - bottom; let bw = aw, bh = aw / 1.5; if (bh > ah) { bh = ah; bw = ah * 1.5; }
+  return { x:left + (aw - bw) / 2, y:bottom + (ah - bh) / 2, w:bw, h:bh };
+}
+function pass(cam, x, y, w, h){ renderer.setViewport(x, y, w, h); renderer.setScissor(x, y, w, h); renderer.render(scene, cam); }
+function frame(){
+  orbit.update();
+  const w = innerWidth, h = innerHeight;
+  renderer.setClearColor(0x0b0b0c, 1);
+  if (view === 'free') {
+    camHelper.visible = true; tc.visible = !!selected;
+    pass(viewCam, 0, 0, w, h);
+    const pr = $('pip').getBoundingClientRect();
+    camHelper.visible = false; const tv = tc.visible; tc.visible = false;
+    pass(shootCam, pr.left, h - pr.bottom, pr.width, pr.height);
+    tc.visible = tv;
+  } else {
+    camHelper.visible = false; tc.visible = false;
+    renderer.setViewport(0, 0, w, h); renderer.setScissor(0, 0, w, h); renderer.clear();
+    const b = camBox(); pass(shootCam, b.x, b.y, b.w, b.h);
+  }
+  requestAnimationFrame(frame);
+}
+
+// ---------- wiring ----------
+$('addBtn').addEventListener('click', () => {
+  const f = $('newFix').value, m = FIX[f].kind === 'panel' ? 'bare' : $('newMod').value, P = facePoint();
+  const a = Math.random() * Math.PI - Math.PI / 2, n = faceNormal();
+  const pos = P.clone().add(n.clone().multiplyScalar(1.8).applyAxisAngle(new THREE.Vector3(0, 1, 0), a));
+  const L = addLight({ fix:f, mod:m, x:THREE.MathUtils.clamp(pos.x, ROOM.x0, ROOM.x1), y:2, z:THREE.MathUtils.clamp(pos.z, ROOM.z0, ROOM.z1), cct:FIX[f].cct ? Math.min(Math.max(5600, FIX[f].cct[0]), FIX[f].cct[1]) : 5600 });
+  refresh(); select({ kind:'light', L }); save();
+});
+$('house').addEventListener('change', () => { refresh(); save(); });
+$('assist').addEventListener('change', refresh);
+$('resetBtn').addEventListener('click', () => { sample(); fillCamSelects(); select(null); refresh(); save(); });
+$('shareBtn').addEventListener('click', () => {
+  save();
+  const base = /claude/i.test(location.hostname) || location.protocol === 'file:' ? 'https://creatoryvn.github.io/cverse-studio/lighting.html' : location.href.split('#')[0];
+  const url = base + '#s-' + enc(serialize());
+  try { navigator.clipboard.writeText(url).then(() => toast(t('copied')), () => prompt('Link', url)); } catch (_) { toast(url); }
+});
+$('sheetBtn').addEventListener('click', () => $('panel').classList.toggle('closed'));
+if (mobile) $('panel').classList.add('closed');
+addEventListener('resize', layout);
+addEventListener('keydown', e => { if ((e.key === 'Delete' || e.key === 'Backspace') && selected && selected.kind === 'light' && document.activeElement === document.body) $('pDel') && $('pDel').click(); if (e.key === 'Escape') select(null); });
+
+function start(){
+  load(); fillCamSelects(); applyLang(); layout(); refresh(); select(null);
+  requestAnimationFrame(frame);
+}
+</script>
+</body>
+</html>
