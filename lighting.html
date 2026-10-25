@@ -220,6 +220,8 @@ const T = {
   facing:['Hướng mặt','Facing','방향'], mh:['Chiều cao','Height','키'], free:['Miễn phí','Free','무료'], rent:['Thuê thêm','Rental','대여'],
   copied:['Đã chép link bố trí','Setup link copied','세팅 링크가 복사되었습니다'], selectHint:['Chọn một mục trong cảnh để chỉnh','Select an item to edit it','편집할 항목을 선택하세요'],
   flashNote:['Đèn flash: hiển thị như ánh sáng đèn nháy tại tốc độ đang chọn.','Flash: shown as the burst exposure at the chosen shutter speed.','플래시: 선택한 셔터 속도의 발광 노출로 표시됩니다.'],
+  specLbl:['Thông số hãng','Maker spec','제조사 사양'], bareLbl:['bóng trần','bare','반사갓 없음'], reflLbl:['có chóa','reflector','반사갓'],
+  estLbl:['ước tính từ mẫu gần nhất','estimated from sibling model','유사 모델 기준 추정'], at1m:['Thiết lập này, cách 1 m','This setting at 1 m','현재 설정, 1 m 거리'],
   surcharge:['Đèn trên 1000W: phụ thu 50.000đ/đèn','Over 1000W: 50,000 VND surcharge','1000W 초과: 대당 50,000 VND 추가'],
   noGL:['Trình duyệt này không hỗ trợ WebGL nên không hiển thị được phòng 3D.','This browser has no WebGL, so the 3D room cannot be shown.','이 브라우저는 WebGL을 지원하지 않아 3D 룸을 표시할 수 없습니다.']
 };
@@ -233,27 +235,41 @@ function applyLang(){
 }
 document.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => { LANG = b.dataset.lang; try { localStorage.setItem('cv-lang', LANG); } catch (_) {} applyLang(); }));
 
-// ---------- studio gear (manufacturer figures; LED = lux at 1 m with standard reflector, flash = guide number m @ ISO100) ----------
+// ---------- studio gear: manufacturer photometrics, centre of beam at 1 m, 5600K ----------
+// LED: bare = no reflector, refl = included reflector (lux @ 1 m, beam = full angle), flux = lumens.
+// Flash: gn = guide number (m, ISO 100) with the standard reflector; flux ≈ 40 lm·s per Ws for a xenon tube
+// (cross-checked: GN 87 @ 600 Ws and Profoto's softbox ratings both land on ~40 lm·s/Ws).
+// est:true = no published figure for that exact unit, values derived from the closest sibling model.
 const FIX = {
-  dp600:  { name:'Godox DP600III',  kind:'flash', gn:87,  free:true },
-  dp1000: { name:'Godox DP1000III', kind:'flash', gn:102, free:true },
-  ef150:  { name:'Jinbei EF-150',   kind:'led', lux:6000,  cct:[5500,5500], free:true },
-  kino:   { name:'Kino light',      kind:'panel', lux:1500, cct:[5600,5600], free:true },
-  a200:   { name:'Amaran 200X',     kind:'led', lux:22000, cct:[2700,6500] },
-  a300c:  { name:'Amaran 300C',     kind:'led', lux:25000, cct:[2500,7500] },
-  ls300:  { name:'Aputure LS 300X', kind:'led', lux:30000, cct:[2700,6500] },
-  s400:   { name:'Aputure 400X',    kind:'led', lux:42000, cct:[2700,6500] },
-  ls600:  { name:'Aputure LS 600X', kind:'led', lux:60000, cct:[2700,6500] },
-  s1200:  { name:'Aputure 1200X',   kind:'led', lux:100000, cct:[2700,6500], big:true }
+  dp600:  { name:'Godox DP600III',  kind:'flash', gn:87,  ws:600,  reflBeam:60, free:true },
+  dp1000: { name:'Godox DP1000III', kind:'flash', gn:102, ws:1000, reflBeam:60, free:true },
+  ef150:  { name:'Jinbei EF-150',   kind:'led', bare:5000,  bareBeam:110, refl:18000,  reflBeam:50, flux:15700, cct:[5500,5500], free:true, est:true },
+  kino:   { name:'Kino light',      kind:'panel', lux:1500, cct:[5600,5600], free:true, est:true },
+  a200:   { name:'Amaran 200x S',   kind:'led', bare:6400,  bareBeam:111, refl:45400,  reflBeam:26, flux:17000, cct:[2700,6500] },
+  a300c:  { name:'Amaran 300c',     kind:'led', bare:9370,  bareBeam:90,  refl:26580,  reflBeam:65, flux:19389, cct:[2500,7500] },
+  ls300:  { name:'Aputure LS 300x', kind:'led', bare:6300,  bareBeam:105, refl:20500,  reflBeam:55, flux:19800, cct:[2700,6500] },
+  s400:   { name:'Aputure STORM 400x', kind:'led', bare:27100, bareBeam:70, refl:64600, reflBeam:35, flux:36000, cct:[2500,10000], est:true },
+  ls600:  { name:'Aputure LS 600x Pro', kind:'led', bare:16060, bareBeam:105, refl:63900, reflBeam:55, flux:50400, cct:[2700,6500] },
+  s1200:  { name:'Aputure STORM 1200x', kind:'led', bare:76410, bareBeam:60, refl:202500, reflBeam:45, flux:125000, cct:[2500,10000], big:true, est:true }
 };
-// beam = full angle; k = share of light reaching the subject axis compared with the bare reflector
+// Soft sources are drawn as Lambertian emitters: on-axis E = flux·T / (π·(d² + A/π)), lanterns as a glowing sphere.
+// T = share of the bare-head flux that leaves the front diffuser (Profoto RFi ratings: octa ≈ 0.6, 1×6 strip ≈ 0.35).
 const MOD = {
-  bare:    { name:['Chóa tiêu chuẩn','Standard reflector','표준 반사갓'], beam:55,  k:1,    shape:'cone' },
-  qrp70:   { name:['Softbox Godox QR-P70','Softbox Godox QR-P70','소프트박스 Godox QR-P70'], beam:110, k:0.35, shape:'oct', size:0.7 },
-  tolifo:  { name:['Softbox Tolifo 90','Softbox Tolifo 90','소프트박스 Tolifo 90'], beam:115, k:0.33, shape:'oct', size:0.9 },
-  strip:   { name:['Softbox strip 35×160','Strip softbox 35×160','스트립 소프트박스 35×160'], beam:100, k:0.3, shape:'strip' },
-  lantern: { name:['Lantern 65 cm','Lantern 65 cm','랜턴 65 cm'], beam:300, k:0.25, shape:'ball', size:0.65 }
+  bare:    { name:['Chóa tiêu chuẩn','Standard reflector','표준 반사갓'], shape:'cone' },
+  none:    { name:['Không chóa (bóng trần)','Bare bulb','반사갓 없음'], shape:'cone', naked:true },
+  qrp70:   { name:['Softbox Godox QR-P70','Softbox Godox QR-P70','소프트박스 Godox QR-P70'], T:0.5,  shape:'oct', size:0.7, area:0.385 },
+  tolifo:  { name:['Softbox Tolifo 90','Softbox Tolifo 90','소프트박스 Tolifo 90'], T:0.55, shape:'oct', size:0.9, area:0.636 },
+  strip:   { name:['Softbox strip 35×160','Strip softbox 35×160','스트립 소프트박스 35×160'], T:0.35, shape:'strip', area:0.56 },
+  lantern: { name:['Lantern 65 cm','Lantern 65 cm','랜턴 65 cm'], T:0.75, shape:'ball', size:0.65 }
 };
+// bi-colour COBs peak near the middle of their range and lose output at the ends (Aputure tables: LS 300x 3200K ≈ 0.8×, 4300K ≈ 1.18× of 5600K)
+const CCT_GAIN = [[2500,0.72],[3200,0.84],[4300,1.1],[5600,1],[6500,0.9],[10000,0.75]];
+function cctGain(fix, k){
+  if (!fix.cct || fix.cct[0] === fix.cct[1]) return 1;
+  const p = CCT_GAIN; if (k <= p[0][0]) return p[0][1];
+  for (let i = 1; i < p.length; i++) if (k <= p[i][0]) { const [a, va] = p[i - 1], [b, vb] = p[i]; return va + (vb - va) * (k - a) / (b - a); }
+  return p[p.length - 1][1];
+}
 const C = 250;                                   // incident-meter calibration constant
 const ISOS = [100,200,400,800,1600,3200], SHUT = [30,60,100,125,160,200,250], APS = [1.8,2,2.8,4,5.6,8,11,16];
 const FLASH_STEPS = [0,1,2,3,4,5,6,7];           // 1/1 .. 1/128
@@ -395,9 +411,9 @@ function buildHead(L){
   const light = isBall ? new THREE.PointLight(0xffffff, 1, 0, 2) : new THREE.SpotLight(0xffffff, 1, 0, 1, 0.5, 2);
   light.castShadow = !isBall;
   if (light.isSpotLight) {
-    const beam = fix.kind === 'panel' ? 100 : mod.beam;
+    const beam = beamOf(L);
     light.angle = THREE.MathUtils.degToRad(Math.min(beam, 170) / 2);
-    light.penumbra = mod.shape === 'cone' && fix.kind !== 'panel' ? 0.35 : 1;
+    light.penumbra = mod.shape === 'cone' && fix.kind !== 'panel' ? (mod.naked ? 0.8 : 0.35) : 1;
     light.shadow.mapSize.set(mobile ? 512 : 1024, mobile ? 512 : 1024);
     light.shadow.bias = -0.0004; light.shadow.normalBias = 0.02; light.shadow.camera.near = 0.1; light.shadow.camera.far = 14;
     scene.add(light.target);
@@ -414,15 +430,41 @@ function layoutLight(L){
   L.head.rotateY(Math.PI);
   if (L.light.isSpotLight) { L.light.target.position.copy(target); L.light.target.updateMatrixWorld(); }
 }
-// Luminous intensity (cd) on the beam axis.
-// LED: lux@1m × dimmer × modifier loss.
-// Flash: a burst that gives f-number N = GN·√(ISO/100·p·k)/d is drawn as the steady light that would give the
-// same exposure at the chosen shutter time t: E·d² = GN²·p·k·C/(100·t).
-function cd(L){
-  const fix = FIX[L.fix], k = fix.kind === 'panel' ? 1 : MOD[L.mod].k;
-  if (fix.kind === 'flash') return fix.gn * fix.gn * Math.pow(2, -L.p) * k * C * camRig.sh / 100;
-  return fix.lux * (L.p / 100) * k;
+// full beam angle used for the 3D spot
+function beamOf(L){
+  const fix = FIX[L.fix], mod = MOD[L.mod];
+  if (fix.kind === 'panel') return 100;
+  if (mod.shape !== 'cone') return 170;
+  return mod.naked ? (fix.kind === 'flash' ? 170 : fix.bareBeam) : fix.reflBeam;
 }
+// Luminous intensity (cd) on the beam axis at full output, before dimming.
+// Flash values are cd·s per burst; cd() turns them into the steady light giving the same exposure at the chosen shutter.
+function baseI(L){
+  const fix = FIX[L.fix], mod = MOD[L.mod], flash = fix.kind === 'flash';
+  if (fix.kind === 'panel') return fix.lux;
+  const flux = flash ? 40 * fix.ws : fix.flux;
+  if (mod.shape === 'cone' && !mod.naked) return flash ? fix.gn * fix.gn * C / 100 : fix.refl;  // GN² = E·t·d²·100/C
+  if (mod.naked) return flash ? flux / (2 * Math.PI) : fix.bare;
+  if (mod.shape === 'ball') return flux * mod.T / (4 * Math.PI);
+  return flux * mod.T / Math.PI;
+}
+function cd(L){
+  const fix = FIX[L.fix];
+  if (fix.kind === 'flash') return baseI(L) * Math.pow(2, -L.p) * camRig.sh;
+  return baseI(L) * (L.p / 100) * cctGain(fix, L.cct);
+}
+// spec line + what this setting gives on axis at 1 m, so it can be checked against a real meter
+function specNote(L){
+  const fix = FIX[L.fix], fmt = n => Math.round(n).toLocaleString('vi-VN');
+  const src = fix.kind === 'flash' ? `GN ${fix.gn} (ISO 100) · ${fix.ws} Ws`
+    : fix.kind === 'panel' ? `${fmt(fix.lux)} lux @1 m`
+    : `${t('bareLbl')} ${fmt(fix.bare)} lux · ${t('reflLbl')} ${fmt(fix.refl)} lux @1 m, 5600K`;
+  const e1 = fix.kind === 'flash' ? baseI(L) * Math.pow(2, -L.p) : cd(L);
+  const at1 = fix.kind === 'flash' ? `f/${fmtN(Math.sqrt(e1 / (1 + areaOf(L) / Math.PI) * 100 / C))} (ISO 100)` : `${fmt(e1 / (1 + areaOf(L) / Math.PI))} lux`;
+  return `${t('specLbl')}: ${src}${fix.est ? ' · ' + t('estLbl') : ''}<br>${t('at1m')}: <b>${at1}</b>`;
+}
+// emitting area of a soft source (m²) — keeps close-up readings finite like a real softbox
+const areaOf = L => FIX[L.fix].kind === 'panel' ? 0.13 : (MOD[L.mod].area || 0);
 
 // ---------- room ----------
 const loadMgr = new THREE.LoadingManager();
@@ -449,7 +491,7 @@ function sample(){
   lights.splice(0).forEach(L => { scene.remove(L.group); if (L.light.target) scene.remove(L.light.target); });
   subject.pose = 'stand'; subject.h = 1.72; subject.rot = 90; subject.group.position.set(-2.4, 0, -0.1); buildMannequin();
   Object.assign(camRig, { f:50, iso:100, sh:125, ap:8, aim:true }); camRig.group.position.set(1.0, 1.45, -0.1);
-  addLight({ fix:'dp600', mod:'qrp70', p:3, x:-0.9, y:2.2, z:1.5 });
+  addLight({ fix:'dp600', mod:'qrp70', p:2, x:-0.9, y:2.2, z:1.5 });
   addLight({ fix:'a200', mod:'lantern', p:35, cct:5600, x:-0.8, y:1.7, z:-1.7 });
   addLight({ fix:'ls300', mod:'bare', p:40, cct:5600, x:-3.7, y:2.6, z:-1.6 });
 }
@@ -505,9 +547,10 @@ function renderProps(){
       ${slider('pH', t('height'), 0.4, 3.6, 0.05, L.group.position.y, v => (+v).toFixed(2) + ' m')}
       <label class="chk"><input type="checkbox" id="pAim"${L.aim ? ' checked' : ''}> ${t('aimSub')}</label>
       <div id="pManual"${L.aim ? ' hidden' : ''}>${slider('pYaw', t('yaw'), -180, 180, 1, L.yaw, v => v + '°')}${slider('pTilt', t('tilt'), -90, 45, 1, L.tilt, v => v + '°')}</div>
+      <p class="note" id="pSpec">${specNote(L)}</p>
       ${flash ? `<p class="note">${t('flashNote')}</p>` : ''}${fix.big ? `<p class="note">${t('surcharge')}</p>` : ''}
       <button class="btn danger" type="button" id="pDel">${t('del')}</button>`;
-    const on = (id, fn) => { const el = $(id); if (el) el.addEventListener('input', () => { fn(el); const o = $(id + 'O'); if (o && el.type === 'range') o.textContent = id === 'pPow' && flash ? stops(7 - el.value) : id === 'pH' ? (+el.value).toFixed(2) + ' m' : el.value + (id === 'pCct' ? 'K' : id === 'pPow' ? '%' : '°'); refresh(); save(); renderList(); }); };
+    const on = (id, fn) => { const el = $(id); if (el) el.addEventListener('input', () => { fn(el); const o = $(id + 'O'); if (o && el.type === 'range') o.textContent = id === 'pPow' && flash ? stops(7 - el.value) : id === 'pH' ? (+el.value).toFixed(2) + ' m' : el.value + (id === 'pCct' ? 'K' : id === 'pPow' ? '%' : '°'); refresh(); save(); renderList(); const sp = $('pSpec'); if (sp) sp.innerHTML = specNote(L); }); };
     on('pPow', el => L.p = flash ? 7 - +el.value : +el.value);
     on('pCct', el => L.cct = +el.value);
     on('pMod', el => { L.mod = el.value; buildHead(L); });
@@ -568,11 +611,13 @@ function meterAt(){
     const v = lp.clone().sub(P), d = Math.max(0.3, v.length()); v.normalize();
     const dome = Math.max(0, (1 + v.dot(N)) / 2);   // incident dome facing the camera axis of the subject
     let beam = 1;
+    const soft = FIX[L.fix].kind === 'panel' || MOD[L.mod].shape === 'oct' || MOD[L.mod].shape === 'strip';
     if (L.light.isSpotLight) {
       const tgt = L.light.target.position.clone().sub(lp).normalize(), ang = tgt.angleTo(v.clone().negate()), half = L.light.angle, inner = half * (1 - L.light.penumbra);
-      beam = ang <= inner ? 1 : ang >= half ? 0.04 : 1 - (ang - inner) / (half - inner) * 0.96;
+      if (soft) beam = Math.max(0, Math.cos(ang));   // Lambertian face
+      else beam = ang <= inner ? 1 : ang >= half ? 0.04 : 1 - (ang - inner) / (half - inner) * 0.96;
     }
-    const e = cd(L) * dome * beam / (d * d);
+    const e = cd(L) * dome * beam / (d * d + areaOf(L) / Math.PI);
     E += e; rows.push([FIX[L.fix].name, e]);
   });
   if ($('house').checked) { E += 75; rows.push([t('ambient'), 75]); }
