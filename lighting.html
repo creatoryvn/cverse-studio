@@ -163,7 +163,8 @@ input[type=range]{width:100%;accent-color:var(--pink)}
       <label class="chk"><input type="checkbox" id="bd27"> <span data-t="bd27">Phông màu 2,7 m</span></label>
       <div class="swatches" id="bdColors" role="group" aria-label="Backdrop colour"></div>
       <label class="chk" style="margin:8px 0"><input type="checkbox" id="bd5"> <span data-t="bd5">Phông xanh lá 5 m</span></label>
-      <label class="chk"><input type="checkbox" id="house"> <span data-t="house">Bật đèn trần phòng (≈150 lux)</span></label>
+      <div class="field"><label for="houseN"><span data-t="house">Đèn trần (LED tuýp 1,2 m)</span><output id="houseNO">0</output></label><input type="range" id="houseN" min="0" max="48" step="6" value="0"></div>
+      <label class="chk" style="margin-top:8px"><input type="checkbox" id="frus" checked> <span data-t="frus">Hiện đường góc máy ảnh</span></label>
       <p class="note" style="margin-top:8px" data-t="eye">Góc tự do: nhìn như mắt thường, không phụ thuộc máy ảnh. Khung máy ảnh theo đúng ISO, tốc độ, khẩu độ.</p>
       <div class="row" style="margin-top:12px"><button class="btn" type="button" id="shareBtn" data-t="share">Lưu &amp; chép link</button><button class="btn" type="button" id="resetBtn" data-t="reset">Bố trí mẫu</button></div>
       <div class="row panel-only" style="margin-top:12px;justify-content:space-between">
@@ -171,6 +172,7 @@ input[type=range]{width:100%;accent-color:var(--pink)}
         <a class="cta" href="./#dat-lich" data-t="book">Đặt lịch Room A</a>
       </div>
       <p class="note" style="margin-top:10px" data-t="disclaimer">Kết quả mang tính tham khảo (sai số khoảng ±1 stop). Thông số đèn lấy theo công bố của hãng; bóng đổ và ánh sáng phản xạ được mô phỏng gần đúng.</p>
+      <p class="note" style="margin-top:6px" data-t="headCredit">Đầu người: bản scan Lee Perry-Smith (Infinite-Realities, CC BY 3.0).</p>
     </section>
   </div>
 </aside>
@@ -203,6 +205,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { Reflector } from 'three/addons/objects/Reflector.js';
+import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 
 const $ = id => document.getElementById(id);
 
@@ -213,7 +217,10 @@ const T = {
   vFree:['Góc tự do','Free view','자유 시점'], vCam:['Qua máy ảnh','Camera view','카메라 시점'], book:['Đặt lịch Room A','Book Room A','Room A 예약'],
   controls:['Bảng điều khiển','Controls','설정'], addLight:['Thêm đèn','Add a light','조명 추가'], add:['+ Thêm','+ Add','+ 추가'],
   scene:['Trong cảnh','In the scene','장면 구성'], room:['Phòng','Room','룸'],
-  house:['Bật đèn trần phòng (≈150 lux)','Room ceiling lights on (≈150 lux)','천장 조명 켜기 (≈150 lux)'],
+  house:['Đèn trần (LED tuýp 1,2 m)','Ceiling lights (1.2 m LED tubes)','천장 조명 (1.2 m LED 튜브)'], tubes:['bóng','tubes','개'],
+  frus:['Hiện đường góc máy ảnh','Show camera view lines','카메라 화각 선 표시'], floorLux:['sàn','floor','바닥'],
+  stockMsg:['Studio hiện có {n} đèn {name}. Nếu muốn thuê thêm, vui lòng báo studio trước. Bạn vẫn có thể thêm để thử bố trí.','The studio has {n} × {name}. To rent more, please tell the studio in advance. You can still add it to try the setup.','스튜디오 보유 {name}: {n}대. 추가 대여는 사전에 스튜디오에 문의해 주세요. 시뮬레이션에는 계속 추가할 수 있습니다.'],
+  headCredit:['Đầu người: bản scan Lee Perry-Smith (Infinite-Realities, CC BY 3.0).','Head: Lee Perry-Smith scan (Infinite-Realities, CC BY 3.0).','두상: Lee Perry-Smith 스캔 (Infinite-Realities, CC BY 3.0).'],
   eye:['Góc tự do: nhìn như mắt thường, không phụ thuộc máy ảnh. Khung máy ảnh theo đúng ISO, tốc độ, khẩu độ.','Free view: what your eyes see, independent of the camera. The camera frame follows its ISO, shutter and aperture.','자유 시점: 카메라와 무관하게 눈으로 보는 밝기. 카메라 화면은 ISO·셔터·조리개를 그대로 따릅니다.'],
   bounce:['Ánh sáng hắt (tường, sàn, phông)','Bounce (walls, floor, backdrop)','반사광 (벽·바닥·배경)'],
   tip:['Gợi ý','Try','추천'], props:['Thêm vật dụng','Add furniture','소품 추가'], prop:['Vật dụng','Furniture','소품'],
@@ -232,7 +239,7 @@ const T = {
   ambient:['Đèn trần','Ceiling lights','천장 조명'], power:['Công suất','Power','출력'], cct:['Nhiệt độ màu','Colour temperature','색온도'],
   modifier:['Bộ tản sáng','Modifier','모디파이어'], height:['Độ cao','Height','높이'], aimSub:['Luôn hướng vào người mẫu','Always aim at the subject','항상 피사체 방향'],
   yaw:['Xoay ngang','Pan','수평 회전'], tilt:['Nghiêng','Tilt','기울기'], del:['Xóa đèn','Remove light','조명 삭제'],
-  camera:['Máy ảnh Sony A7III','Sony A7III camera','Sony A7III 카메라'], focal:['Tiêu cự','Focal length','초점거리'],
+  camera:['Máy ảnh Sony A7CII','Sony A7CII camera','Sony A7CII 카메라'], focal:['Tiêu cự','Focal length','초점거리'],
   model:['Người mẫu','Model','모델'], pose:['Tư thế','Pose','포즈'], stand:['Đứng','Standing','서기'], sit:['Ngồi ghế','Seated','앉기'],
   facing:['Hướng mặt','Facing','방향'], mh:['Chiều cao','Height','키'], free:['Miễn phí','Free','무료'], rent:['Thuê thêm','Rental','대여'],
   copied:['Đã chép link bố trí','Setup link copied','세팅 링크가 복사되었습니다'], selectHint:['Chọn một mục trong cảnh để chỉnh','Select an item to edit it','편집할 항목을 선택하세요'],
@@ -262,8 +269,8 @@ const FIX = {
   dp1000: { name:'Godox DP1000III', kind:'flash', gn:102, ws:1000, reflBeam:60, free:true },
   ef150:  { name:'Jinbei EF-150',   kind:'led', bare:5000,  bareBeam:110, refl:18000,  reflBeam:50, flux:15700, cct:[5500,5500], free:true, est:true },
   kino:   { name:'Kino light',      kind:'panel', lux:1500, cct:[5600,5600], free:true, est:true },
-  a200:   { name:'Amaran 200x S',   kind:'led', bare:6400,  bareBeam:111, refl:45400,  reflBeam:26, flux:17000, cct:[2700,6500], model:'amaran200' },
-  a300c:  { name:'Amaran 300c',     kind:'led', bare:9370,  bareBeam:90,  refl:26580,  reflBeam:65, flux:19389, cct:[2500,7500], model:'amaran300' },
+  a200:   { name:'Amaran 200XS',   kind:'led', bare:6400,  bareBeam:111, refl:45400,  reflBeam:26, flux:17000, cct:[2700,6500], model:'amaran200' },
+  a300c:  { name:'Amaran 300C',     kind:'led', bare:9370,  bareBeam:90,  refl:26580,  reflBeam:65, flux:19389, cct:[2500,7500], model:'amaran300' },
   ls300:  { name:'Aputure LS 300x', kind:'led', bare:6300,  bareBeam:105, refl:20500,  reflBeam:55, flux:19800, cct:[2700,6500] },
   s400:   { name:'Aputure STORM 400x', kind:'led', bare:27100, bareBeam:70, refl:64600, reflBeam:35, flux:36000, cct:[2500,10000], est:true },
   ls600:  { name:'Aputure LS 600x Pro', kind:'led', bare:16060, bareBeam:105, refl:63900, reflBeam:55, flux:50400, cct:[2700,6500] },
@@ -323,9 +330,36 @@ tc.setSize(0.8); scene.add(tc);
 tc.addEventListener('dragging-changed', e => { orbit.enabled = !e.value; if (!e.value) save(); });
 tc.addEventListener('objectChange', () => { constrain(tc.object); refresh(); });
 
-const hemi = new THREE.HemisphereLight(0xffffff, 0x555048, 0);   // ceiling lights (metered)
 const bounceAmb = new THREE.HemisphereLight(0xffffff, 0xffffff, 0);   // room-wide inter-reflection (metered)
-scene.add(hemi, bounceAmb);
+scene.add(bounceAmb);
+
+// ---------- ceiling: 48 × 1.2 m LED tubes, 8 rows of 6 (switched per row) ----------
+// T8 18 W tube ≈ 1800 lm, 4000K, emitting downward like a Lambertian strip. Each row is one RectAreaLight.
+RectAreaLightUniformsLib.init();
+const CEIL = { lm:1800, y:3.8, rows:8, per:6, xs:[], zs:[], areas:[], tubes:null };
+for (let i = 0; i < CEIL.per; i++) CEIL.xs.push(-3.6 + i * 1.44);
+for (let j = 0; j < CEIL.rows; j++) CEIL.zs.push(-3.33 + j * 0.95);
+CEIL.tubes = new THREE.InstancedMesh(new THREE.BoxGeometry(1.2, 0.03, 0.03),
+  new THREE.MeshStandardMaterial({ color:0x222222, emissive:kelvinRGB(4000), emissiveIntensity:1 }), CEIL.rows * CEIL.per);
+{ const m = new THREE.Matrix4(); let k = 0; CEIL.zs.forEach(z => CEIL.xs.forEach(x => CEIL.tubes.setMatrixAt(k++, m.makeTranslation(x, CEIL.y, z)))); }
+scene.add(CEIL.tubes);
+CEIL.zs.forEach(z => { const a = new THREE.RectAreaLight(kelvinRGB(4000), 0, 8.4, 0.08); a.position.set(0, CEIL.y - 0.02, z); a.lookAt(0, 0, z); scene.add(a); CEIL.areas.push(a); });
+const ceilOn = () => +$('houseN').value;            // tubes lit
+function applyCeiling(){
+  const n = ceilOn(), rowsOn = n / CEIL.per;
+  CEIL.areas.forEach((a, j) => { a.intensity = j < rowsOn ? CEIL.lm * CEIL.per / (Math.PI * a.width * a.height) : 0; });
+  CEIL.tubes.count = n;
+  // rough average on the floor: flux × utilisation 0.55 / 74 m²
+  $('houseNO').textContent = n ? `${n} ${t('tubes')} · ~${Math.round(n * CEIL.lm * 0.55 / 74)} lux ${t('floorLux')}` : '0';
+}
+// illuminance from the lit tubes at point P through an incident dome facing N (each tube ≈ point source, I = Φ/π · cos)
+function ceilingAt(P, N){
+  const rowsOn = ceilOn() / CEIL.per, I0 = CEIL.lm / Math.PI; let E = 0;
+  CEIL.zs.forEach((z, j) => { if (j >= rowsOn) return; CEIL.xs.forEach(x => {
+    const v = new THREE.Vector3(x - P.x, CEIL.y - P.y, z - P.z), d2 = Math.max(0.25, v.lengthSq()), d = Math.sqrt(d2); v.divideScalar(d);
+    E += I0 * Math.max(0, v.y) * Math.max(0, (1 + v.dot(N)) / 2) / d2; }); });
+  return E;
+}
 let roomObj = null, expCam = 1, bounceE = 0, bounceEyeE = 0;
 // Free view = the eye in the studio, independent of the camera: a fixed adaptation (≈300 lux reads mid-grey), so raising a
 // light really looks brighter. The eye sees a flash burst as a pop, drawn here like a steady light lasting 1/4 s.
@@ -341,12 +375,12 @@ function kelvinRGB(k){
 }
 const stops = n => ['1/1','1/2','1/4','1/8','1/16','1/32','1/64','1/128'][n];
 const fmtN = n => n >= 10 ? n.toFixed(0) : n.toFixed(1);
-function toast(msg){ const el = $('toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 1800); }
+function toast(msg, ms = 1800){ const el = $('toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), ms); }
 const matStd = (c, r = 0.7, m = 0) => new THREE.MeshStandardMaterial({ color:c, roughness:r, metalness:m });
 
 // ---------- subject (mannequin) ----------
 const subject = { group:new THREE.Group(), pose:'stand', h:1.72, rot:90 };
-const skin = matStd(0xbdb6ae, 0.65);
+const skin = matStd(0xcdb3a1, 0.65);
 function buildMannequin(){
   const g = subject.group; g.clear();
   const s = subject.h / 1.75, cap = (r, l, x, y, z, rx = 0, rz = 0) => { const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, l, 4, 10), skin); m.position.set(x, y, z); m.rotation.set(rx, 0, rz); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
@@ -363,18 +397,24 @@ function buildMannequin(){
     cap(0.05, 0.5, -0.27, 0.98, 0.04, 0.25, 0.08); cap(0.05, 0.5, 0.27, 0.98, 0.04, 0.25, -0.08);
     cap(0.05, 0.08, 0, 1.33, -0.02);
   }
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 24, 18), skin); head.scale.set(0.9, 1.1, 1); head.position.set(0, faceY() / s, 0); head.castShadow = head.receiveShadow = true; g.add(head);
-  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.04, 8), skin); nose.rotation.x = Math.PI / 2; nose.position.set(0, faceY() / s, 0.11); g.add(nose);
+  if (HEAD) {   // scanned face, so key/fill ratios and shadows on the nose and eyes read like on a person
+    const head = new THREE.Mesh(HEAD.geometry, HEAD.material); head.castShadow = head.receiveShadow = true;
+    head.scale.setScalar(HEAD.k); head.position.set(0, faceY() / s - HEAD.eye, 0); g.add(head);
+  } else {
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 24, 18), skin); head.scale.set(0.9, 1.1, 1); head.position.set(0, faceY() / s, 0); head.castShadow = head.receiveShadow = true; g.add(head);
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.04, 8), skin); nose.rotation.x = Math.PI / 2; nose.position.set(0, faceY() / s, 0.11); g.add(nose);
+  }
   g.scale.setScalar(s);
   g.rotation.y = THREE.MathUtils.degToRad(subject.rot);
   g.userData.kind = 'subject';
 }
+let HEAD = null;   // { geometry, material, k: scale, eye: eye height above the mesh origin after scaling }
 const faceY = () => (subject.pose === 'stand' ? 1.62 : 1.48) * subject.h / 1.75;
 function facePoint(){ const p = subject.group.position.clone(); p.y = faceY(); return p; }
 function faceNormal(){ return new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), subject.group.rotation.y); }
 scene.add(subject.group);
 
-// ---------- camera (Sony A7III, full frame 36×24) ----------
+// ---------- camera (Sony A7CII, full frame 36×24) ----------
 const shootCam = new THREE.PerspectiveCamera(40, 1.5, 0.05, 40);
 const camRig = { group:new THREE.Group(), f:50, iso:100, sh:125, ap:8, aim:true, yaw:0, tilt:0 };
 (function buildCamera(){
@@ -454,7 +494,8 @@ function buildHead(L){
     light.angle = THREE.MathUtils.degToRad(Math.min(beam, 170) / 2);
     light.penumbra = mod.shape === 'cone' && fix.kind !== 'panel' ? (mod.naked ? 0.8 : 0.35) : 1;
     light.shadow.mapSize.set(mobile ? 512 : 1024, mobile ? 512 : 1024);
-    light.shadow.bias = -0.0004; light.shadow.normalBias = 0.02; light.shadow.camera.near = 0.1; light.shadow.camera.far = 14;
+    // wide beams spread one shadow map over a huge cone, which shows up as stripes (shadow acne): focus the map and push the bias
+    light.shadow.bias = -0.0006; light.shadow.normalBias = 0.06; light.shadow.focus = beam > 110 ? 0.65 : 1; light.shadow.camera.near = 0.1; light.shadow.camera.far = 14;
     scene.add(light.target);
   }
   light.position.copy(front.position);
@@ -525,7 +566,7 @@ function fluxOut(L, sh = camRig.sh){
 // room adds an even ambient E = ρ·ΣΦ / (A·(1 − ρ)) (room A ≈ 270 m² of surfaces, average ρ ≈ 0.4).
 const bray = new THREE.Raycaster(), ROOM_AREA = 270, RHO = 0.4;
 function updateBounce(){
-  let total = 0, totalEye = 0;
+  let total = ceilOn() * CEIL.lm, totalEye = total;
   lights.forEach(L => {
     const phi = fluxOut(L), phiEye = fluxOut(L, EYE_SH); total += phi; totalEye += phiEye;
     L.bCam = L.bEye = 0;
@@ -572,16 +613,57 @@ const tidy = o => o.traverse(m => {
       loadGLB('assets/3d/room-a.glb', e => { if (e.total) { const p = Math.min(100, Math.round(e.loaded / e.total * 100)); $('loadBar').style.width = p + '%'; $('loadTxt').textContent = p + '%'; } }),
       ...keys.map(k => loadGLB('assets/3d/' + MAN.assets[k].file))]);
     keys.forEach((k, i) => { tidy(parts[i]); ASSET[k] = parts[i]; });
+    try {   // Lee Perry-Smith head scan (CC BY 3.0) from the three.js examples
+      const hs = await loadGLB('assets/3d/head/LeePerrySmith.glb'), tl = new THREE.TextureLoader();
+      let geo = null; hs.traverse(o => { if (o.isMesh && !geo) geo = o.geometry; });
+      const map = tl.load('assets/3d/head/Map-COL.jpg'); map.colorSpace = THREE.SRGBColorSpace;
+      const nrm = tl.load('assets/3d/head/Infinite-Level_02_Tangent_SmoothUV.jpg');
+      geo.computeBoundingBox(); const bb = geo.boundingBox, hgt = bb.max.y - bb.min.y, k = 0.3 / hgt;
+      geo.translate(-(bb.min.x + bb.max.x) / 2, 0, -(bb.min.z + bb.max.z) / 2);
+      HEAD = { geometry:geo, material:new THREE.MeshStandardMaterial({ map, normalMap:nrm, roughness:0.62, metalness:0 }), k, eye:(bb.min.y + hgt * 0.68) * k };
+    } catch (_) { HEAD = null; }
     tidy(room);
     room.traverse(o => { if (o.isMesh) { o.receiveShadow = true; o.castShadow = o.geometry.boundingSphere ? o.geometry.boundingSphere.radius < 3 : true; } });
     const b27 = room.getObjectByName('backdrop_27'), b5 = room.getObjectByName('backdrop_5');
     bd.m27 = b27; bd.m5 = b5;
-    if (b27) { b27.material = b27.material.clone(); b27.material.roughness = 0.95; b27.material.metalness = 0; }
+    // seamless paper and the fabric screen are fully matte
+    [b27, b5].forEach(b => { if (b) { b.material = b.material.clone(); b.material.roughness = 1; b.material.metalness = 0; } });
+    if (b5) b5.material.color.set(0x3f9a46);
+    setupMirror(room); setupShelf(room);
     scene.add(room); roomObj = room;
     $('loading').hidden = true;
     start();
   } catch (err) { $('loadTxt').textContent = 'Không tải được mô hình phòng: ' + err.message; }
 })();
+// The mirror's glass becomes a live reflection (three.js Reflector) laid just in front of the original glass.
+function setupMirror(room){
+  let glass = null;
+  room.traverse(o => { if (o.isMesh && o.material && o.material.name === 'Mirror') glass = o; });
+  if (!glass) return;
+  glass.geometry.computeBoundingBox();
+  const bb = glass.geometry.boundingBox, size = bb.getSize(new THREE.Vector3()), c = bb.getCenter(new THREE.Vector3());
+  // thinnest local axis is the glass normal
+  const ax = size.x < size.y && size.x < size.z ? 'x' : size.y < size.z ? 'y' : 'z';
+  const [w, h] = ax === 'x' ? [size.z, size.y] : ax === 'y' ? [size.x, size.z] : [size.x, size.y];
+  const res = Math.round((mobile ? 512 : 1024) * Math.min(devicePixelRatio, 2) / 2);
+  const mirror = new Reflector(new THREE.PlaneGeometry(w, h), { textureWidth:res, textureHeight:Math.round(res * h / w), color:0xd8d8d8, clipBias:0.003 });
+  const holder = new THREE.Group(); holder.position.copy(glass.position); holder.quaternion.copy(glass.quaternion); holder.scale.copy(glass.scale);
+  glass.parent.add(holder); holder.add(mirror);
+  mirror.position.copy(c);
+  if (ax === 'x') mirror.rotation.y = Math.PI / 2; else if (ax === 'y') mirror.rotation.x = -Math.PI / 2;
+  // face the room: flip if the plane's normal points towards the wall
+  holder.updateMatrixWorld(true);
+  const n = new THREE.Vector3(0, 0, 1).transformDirection(mirror.matrixWorld), p = mirror.getWorldPosition(new THREE.Vector3());
+  if (n.dot(p.clone().negate().setY(0)) < 0) mirror.rotateY(Math.PI);
+  mirror.translateZ(size[ax] / 2 + 0.002);
+}
+// ---------- studio stock on the shelves: a light taken into the set disappears from its shelf ----------
+const STOCK = { a200:['SHELF_amaran200_1', 'SHELF_amaran200_2', 'SHELF_amaran200_3'], a300c:['SHELF_amaran300_1'] };
+const shelfNodes = {};
+function setupShelf(room){ Object.entries(STOCK).forEach(([k, names]) => { shelfNodes[k] = names.map(n => room.getObjectByName(n)).filter(Boolean); }); }
+function updateShelf(){
+  Object.entries(shelfNodes).forEach(([k, nodes]) => { const used = lights.filter(L => L.fix === k).length; nodes.forEach((n, i) => n.visible = i >= used); });
+}
 function applyBackdrops(){
   if (bd.m27) { bd.m27.visible = bd.on27; bd.m27.material.color.set(BD_COLORS[bd.c][3]); }
   if (bd.m5) bd.m5.visible = bd.on5;
@@ -618,7 +700,7 @@ function sample(){
 function serialize(){
   return { v:1, l:lights.map(L => [L.fix, L.mod, +L.group.position.x.toFixed(2), +L.group.position.y.toFixed(2), +L.group.position.z.toFixed(2), L.p, L.cct, L.aim ? 1 : 0, L.yaw, L.tilt]),
     c:[+camRig.group.position.x.toFixed(2), +camRig.group.position.y.toFixed(2), +camRig.group.position.z.toFixed(2), camRig.f, camRig.iso, camRig.sh, camRig.ap],
-    s:[+subject.group.position.x.toFixed(2), +subject.group.position.z.toFixed(2), subject.rot, subject.h, subject.pose], h:$('house').checked ? 1 : 0,
+    s:[+subject.group.position.x.toFixed(2), +subject.group.position.z.toFixed(2), subject.rot, subject.h, subject.pose], h:ceilOn(),
     p:props.map(P => [P.key, +P.group.position.x.toFixed(2), +P.group.position.z.toFixed(2), P.rot]), b:[bd.on27 ? 1 : 0, bd.c, bd.on5 ? 1 : 0] };
 }
 function restore(d){
@@ -629,7 +711,7 @@ function restore(d){
   subject.group.position.set(d.s[0], 0, d.s[1]); subject.rot = d.s[2]; subject.h = d.s[3]; subject.pose = d.s[4]; buildMannequin();
   camRig.group.position.set(d.c[0], d.c[1], d.c[2]); [camRig.f, camRig.iso, camRig.sh, camRig.ap] = d.c.slice(3);
   d.l.forEach(a => { if (FIX[a[0]] && MOD[a[1]]) addLight({ fix:a[0], mod:a[1], x:a[2], y:a[3], z:a[4], p:a[5], cct:a[6], aim:!!a[7], yaw:a[8], tilt:a[9] }); });
-  $('house').checked = !!d.h;
+  $('houseN').value = d.h === 1 ? 48 : d.h || 0;   // old links stored an on/off flag
 }
 const enc = o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const dec = s => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
@@ -651,7 +733,7 @@ function select(sel){
 }
 function renderList(){
   const items = [{ kind:'subject', label:t('model'), sub:subject.pose === 'stand' ? t('stand') : t('sit'), color:'#bdb6ae' },
-                 { kind:'camera', label:'Sony A7III', sub:`${camRig.f} mm · ISO ${camRig.iso}`, color:'#ff4f8b' }]
+                 { kind:'camera', label:'Sony A7CII', sub:`${camRig.f} mm · ISO ${camRig.iso}`, color:'#ff4f8b' }]
     .concat(lights.map(L => ({ kind:'light', L, label:FIX[L.fix].name, sub:(FIX[L.fix].kind === 'flash' ? stops(L.p) : L.p + '%') + ' · ' + (FIX[L.fix].kind === 'panel' ? 'Kino' : MOD[L.mod].name[LANG === 'en' ? 1 : LANG === 'ko' ? 2 : 0]), color:'#' + kelvinRGB(L.cct).getHexString(), tag:FIX[L.fix].free })))
     .concat(props.map(P => ({ kind:'prop', P, label:PROPS[P.key][LANG === 'en' ? 1 : LANG === 'ko' ? 2 : 0], sub:t('prop'), color:'#8a6a4a' })));
   $('list').innerHTML = items.map((it, i) => `<button class="item" role="option" type="button" data-i="${i}" aria-selected="${!!selected && selected.kind === it.kind && selected.L === it.L && selected.P === it.P}">
@@ -761,7 +843,7 @@ function meterAt(){
     eb += L.bCam * Math.max(0, (1 + v.dot(N)) / 2) / (d * d);
   });
   if (eb >= 1) { E += eb; rows.push([t('bounce'), eb]); }
-  if ($('house').checked) { E += 75; rows.push([t('ambient'), 75]); }
+  if (ceilOn()) { const ec = ceilingAt(P, N); E += ec; rows.push([`${t('ambient')} (${ceilOn()})`, ec]); }
   return { E, rows };
 }
 function updateMeter(){
@@ -805,7 +887,8 @@ function refresh(){
   });
   updateBounce();
   expCam = Math.PI * (1 / camRig.sh) * camRig.iso / (C * camRig.ap * camRig.ap);
-  hemi.intensity = $('house').checked ? 150 / Math.PI : 0;
+  applyCeiling(); updateShelf();
+  camHelper.visible = $('frus').checked;
   // only the four brightest lights cast shadows, to keep phones fluid
   [...lights].sort((a, b) => b.iEye - a.iEye).forEach((L, i) => { if (L.light.isSpotLight) L.light.castShadow = i < 4; });
   layoutCamera(); updateMeter();
@@ -820,6 +903,7 @@ function setMode(eye){
     L.front.material.emissiveIntensity = (1.2 + 1.8 * Math.min(1, i * exp * 20)) / exp;
   });
   bounceAmb.intensity = (eye ? bounceEyeE : bounceE) / Math.PI;
+  CEIL.tubes.material.emissiveIntensity = 3 / exp;   // lit tubes read as bright white whatever the exposure
   renderer.toneMappingExposure = exp;
 }
 
@@ -864,7 +948,7 @@ function frame(){
   const w = innerWidth, h = innerHeight;
   renderer.setClearColor(0x0b0b0c, 1);
   if (view === 'free') {
-    camHelper.visible = true; tc.visible = !!selected;
+    camHelper.visible = $('frus').checked; tc.visible = !!selected;
     setMode(true);
     pass(viewCam, 0, 0, w, h);
     setMode(false);
@@ -888,8 +972,11 @@ $('addBtn').addEventListener('click', () => {
   const pos = P.clone().add(n.clone().multiplyScalar(1.8).applyAxisAngle(new THREE.Vector3(0, 1, 0), a));
   const L = addLight({ fix:f, mod:m, x:THREE.MathUtils.clamp(pos.x, ROOM.x0, ROOM.x1), y:2, z:THREE.MathUtils.clamp(pos.z, ROOM.z0, ROOM.z1), cct:FIX[f].cct ? Math.min(Math.max(5600, FIX[f].cct[0]), FIX[f].cct[1]) : 5600 });
   refresh(); select({ kind:'light', L }); save();
+  const have = STOCK[f] ? STOCK[f].length : 0;
+  if (have && lights.filter(x => x.fix === f).length > have) toast(t('stockMsg').replace('{n}', have).replace('{name}', FIX[f].name), 6000);
 });
-$('house').addEventListener('change', () => { refresh(); save(); });
+$('houseN').addEventListener('input', () => { refresh(); save(); });
+$('frus').addEventListener('change', () => refresh());
 $('resetBtn').addEventListener('click', () => { sample(); fillCamSelects(); applyBackdrops(); select(null); refresh(); save(); });
 $('addPropBtn').addEventListener('click', () => {
   const P0 = facePoint(), n = faceNormal();
