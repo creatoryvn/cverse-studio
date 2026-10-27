@@ -163,7 +163,8 @@ input[type=range]{width:100%;accent-color:var(--pink)}
       <label class="chk"><input type="checkbox" id="bd27"> <span data-t="bd27">Phông màu 2,7 m</span></label>
       <div class="swatches" id="bdColors" role="group" aria-label="Backdrop colour"></div>
       <label class="chk" style="margin:8px 0"><input type="checkbox" id="bd5"> <span data-t="bd5">Phông xanh lá 5 m</span></label>
-      <div class="field"><label for="houseN"><span data-t="house">Đèn trần (LED tuýp 1,2 m)</span><output id="houseNO">0</output></label><input type="range" id="houseN" min="0" max="48" step="6" value="0"></div>
+      <div class="field"><label for="houseN"><span data-t="house">Đèn trần (LED tuýp 1,2 m)</span><output id="houseNO">0</output></label><input type="range" id="houseN" min="0" max="48" step="4" value="0"></div>
+      <label class="chk" style="margin-top:8px"><input type="checkbox" id="cut" checked> <span data-t="cut">Ẩn tường phía trước (kiểu The Sims)</span></label>
       <label class="chk" style="margin-top:8px"><input type="checkbox" id="frus" checked> <span data-t="frus">Hiện đường góc máy ảnh</span></label>
       <p class="note" style="margin-top:8px" data-t="eye">Góc tự do: nhìn như mắt thường, không phụ thuộc máy ảnh. Khung máy ảnh theo đúng ISO, tốc độ, khẩu độ.</p>
       <div class="row" style="margin-top:12px"><button class="btn" type="button" id="shareBtn" data-t="share">Lưu &amp; chép link</button><button class="btn" type="button" id="resetBtn" data-t="reset">Bố trí mẫu</button></div>
@@ -172,7 +173,7 @@ input[type=range]{width:100%;accent-color:var(--pink)}
         <a class="cta" href="./#dat-lich" data-t="book">Đặt lịch Room A</a>
       </div>
       <p class="note" style="margin-top:10px" data-t="disclaimer">Kết quả mang tính tham khảo (sai số khoảng ±1 stop). Thông số đèn lấy theo công bố của hãng; bóng đổ và ánh sáng phản xạ được mô phỏng gần đúng.</p>
-      <p class="note" style="margin-top:6px" data-t="headCredit">Đầu người: bản scan Lee Perry-Smith (Infinite-Realities, CC BY 3.0).</p>
+      <p class="note" style="margin-top:6px" data-t="headCredit">Người mẫu 3D: Michelle (Mixamo, Adobe).</p>
     </section>
   </div>
 </aside>
@@ -206,6 +207,7 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 
 const $ = id => document.getElementById(id);
@@ -218,9 +220,10 @@ const T = {
   controls:['Bảng điều khiển','Controls','설정'], addLight:['Thêm đèn','Add a light','조명 추가'], add:['+ Thêm','+ Add','+ 추가'],
   scene:['Trong cảnh','In the scene','장면 구성'], room:['Phòng','Room','룸'],
   house:['Đèn trần (LED tuýp 1,2 m)','Ceiling lights (1.2 m LED tubes)','천장 조명 (1.2 m LED 튜브)'], tubes:['bóng','tubes','개'],
+  cut:['Ẩn tường phía trước (kiểu The Sims)','Hide walls in front (The Sims style)','앞쪽 벽 숨기기 (심즈 방식)'],
   frus:['Hiện đường góc máy ảnh','Show camera view lines','카메라 화각 선 표시'], floorLux:['sàn','floor','바닥'],
   stockMsg:['Studio hiện có {n} đèn {name}. Nếu muốn thuê thêm, vui lòng báo studio trước. Bạn vẫn có thể thêm để thử bố trí.','The studio has {n} × {name}. To rent more, please tell the studio in advance. You can still add it to try the setup.','스튜디오 보유 {name}: {n}대. 추가 대여는 사전에 스튜디오에 문의해 주세요. 시뮬레이션에는 계속 추가할 수 있습니다.'],
-  headCredit:['Đầu người: bản scan Lee Perry-Smith (Infinite-Realities, CC BY 3.0).','Head: Lee Perry-Smith scan (Infinite-Realities, CC BY 3.0).','두상: Lee Perry-Smith 스캔 (Infinite-Realities, CC BY 3.0).'],
+  headCredit:['Người mẫu 3D: Michelle (Mixamo, Adobe).','3D model: Michelle (Mixamo, Adobe).','3D 모델: Michelle (Mixamo, Adobe).'],
   eye:['Góc tự do: nhìn như mắt thường, không phụ thuộc máy ảnh. Khung máy ảnh theo đúng ISO, tốc độ, khẩu độ.','Free view: what your eyes see, independent of the camera. The camera frame follows its ISO, shutter and aperture.','자유 시점: 카메라와 무관하게 눈으로 보는 밝기. 카메라 화면은 ISO·셔터·조리개를 그대로 따릅니다.'],
   bounce:['Ánh sáng hắt (tường, sàn, phông)','Bounce (walls, floor, backdrop)','반사광 (벽·바닥·배경)'],
   tip:['Gợi ý','Try','추천'], props:['Thêm vật dụng','Add furniture','소품 추가'], prop:['Vật dụng','Furniture','소품'],
@@ -341,26 +344,43 @@ for (let i = 0; i < CEIL.per; i++) CEIL.xs.push(-3.6 + i * 1.44);
 for (let j = 0; j < CEIL.rows; j++) CEIL.zs.push(-3.33 + j * 0.95);
 CEIL.tubes = new THREE.InstancedMesh(new THREE.BoxGeometry(1.2, 0.03, 0.03),
   new THREE.MeshStandardMaterial({ color:0x222222, emissive:kelvinRGB(4000), emissiveIntensity:1 }), CEIL.rows * CEIL.per);
-{ const m = new THREE.Matrix4(); let k = 0; CEIL.zs.forEach(z => CEIL.xs.forEach(x => CEIL.tubes.setMatrixAt(k++, m.makeTranslation(x, CEIL.y, z)))); }
 scene.add(CEIL.tubes);
 CEIL.zs.forEach(z => { const a = new THREE.RectAreaLight(kelvinRGB(4000), 0, 8.4, 0.08); a.position.set(0, CEIL.y - 0.02, z); a.lookAt(0, 0, z); scene.add(a); CEIL.areas.push(a); });
+// switching order: checkerboard first (half the tubes = a perfect "caro"), each half picked farthest-first so any count spreads evenly
+CEIL.all = []; CEIL.zs.forEach((z, j) => CEIL.xs.forEach((x, i) => CEIL.all.push({ x, z, row:j, odd:(i + j) % 2 })));
+CEIL.order = (() => {
+  const picked = [], d2 = (a, b) => (a.x - b.x) ** 2 + (a.z - b.z) ** 2;
+  [0, 1].forEach(par => {
+    const pool = CEIL.all.filter(t => t.odd === par);
+    while (pool.length) {
+      let best = 0, bestD = -1;
+      pool.forEach((t, k) => { const d = picked.length ? Math.min(...picked.map(p => d2(p, t))) : -d2(t, { x:0, z:0 }); if (d > bestD) { bestD = d; best = k; } });
+      picked.push(pool.splice(best, 1)[0]);
+    }
+  });
+  return picked;
+})();
 const ceilOn = () => +$('houseN').value;            // tubes lit
+const litTubes = () => CEIL.order.slice(0, ceilOn());
 function applyCeiling(){
-  const n = ceilOn(), rowsOn = n / CEIL.per;
-  CEIL.areas.forEach((a, j) => { a.intensity = j < rowsOn ? CEIL.lm * CEIL.per / (Math.PI * a.width * a.height) : 0; });
-  CEIL.tubes.count = n;
+  const lit = litTubes(), n = lit.length, m = new THREE.Matrix4();
+  // each row's strip light carries exactly the tubes lit in that row
+  CEIL.areas.forEach((a, j) => { a.intensity = CEIL.lm * lit.filter(t => t.row === j).length / (Math.PI * a.width * a.height); });
+  lit.forEach((t, k) => CEIL.tubes.setMatrixAt(k, m.makeTranslation(t.x, CEIL.y, t.z)));
+  CEIL.tubes.count = n; CEIL.tubes.instanceMatrix.needsUpdate = true;
   // rough average on the floor: flux × utilisation 0.55 / 74 m²
   $('houseNO').textContent = n ? `${n} ${t('tubes')} · ~${Math.round(n * CEIL.lm * 0.55 / 74)} lux ${t('floorLux')}` : '0';
 }
 // illuminance from the lit tubes at point P through an incident dome facing N (each tube ≈ point source, I = Φ/π · cos)
 function ceilingAt(P, N){
-  const rowsOn = ceilOn() / CEIL.per, I0 = CEIL.lm / Math.PI; let E = 0;
-  CEIL.zs.forEach((z, j) => { if (j >= rowsOn) return; CEIL.xs.forEach(x => {
-    const v = new THREE.Vector3(x - P.x, CEIL.y - P.y, z - P.z), d2 = Math.max(0.25, v.lengthSq()), d = Math.sqrt(d2); v.divideScalar(d);
-    E += I0 * Math.max(0, v.y) * Math.max(0, (1 + v.dot(N)) / 2) / d2; }); });
+  const I0 = CEIL.lm / Math.PI; let E = 0;
+  litTubes().forEach(t => {
+    const v = new THREE.Vector3(t.x - P.x, CEIL.y - P.y, t.z - P.z), d2 = Math.max(0.25, v.lengthSq()), d = Math.sqrt(d2); v.divideScalar(d);
+    E += I0 * Math.max(0, v.y) * Math.max(0, (1 + v.dot(N)) / 2) / d2; });
   return E;
 }
 let roomObj = null, expCam = 1, bounceE = 0, bounceEyeE = 0;
+const WALLS = [];
 // Free view = the eye in the studio, independent of the camera: a fixed adaptation (≈300 lux reads mid-grey), so raising a
 // light really looks brighter. The eye sees a flash burst as a pop, drawn here like a steady light lasting 1/4 s.
 const EXP_EYE = Math.PI / 300, EYE_SH = 4;
@@ -382,7 +402,8 @@ const matStd = (c, r = 0.7, m = 0) => new THREE.MeshStandardMaterial({ color:c, 
 const subject = { group:new THREE.Group(), pose:'stand', h:1.72, rot:90 };
 const skin = matStd(0xcdb3a1, 0.65);
 function buildMannequin(){
-  const g = subject.group; g.clear();
+  if (HUMAN) return buildHuman();
+  const g = subject.group; g.clear(); subject.eye = null;
   const s = subject.h / 1.75, cap = (r, l, x, y, z, rx = 0, rz = 0) => { const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, l, 4, 10), skin); m.position.set(x, y, z); m.rotation.set(rx, 0, rz); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
   if (subject.pose === 'stand') {
     cap(0.075, 0.72, -0.1, 0.45, 0); cap(0.075, 0.72, 0.1, 0.45, 0);
@@ -397,19 +418,47 @@ function buildMannequin(){
     cap(0.05, 0.5, -0.27, 0.98, 0.04, 0.25, 0.08); cap(0.05, 0.5, 0.27, 0.98, 0.04, 0.25, -0.08);
     cap(0.05, 0.08, 0, 1.33, -0.02);
   }
-  if (HEAD) {   // scanned face, so key/fill ratios and shadows on the nose and eyes read like on a person
-    const head = new THREE.Mesh(HEAD.geometry, HEAD.material); head.castShadow = head.receiveShadow = true;
-    head.scale.setScalar(HEAD.k); head.position.set(0, faceY() / s - HEAD.eye, 0); g.add(head);
-  } else {
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 24, 18), skin); head.scale.set(0.9, 1.1, 1); head.position.set(0, faceY() / s, 0); head.castShadow = head.receiveShadow = true; g.add(head);
-    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.04, 8), skin); nose.rotation.x = Math.PI / 2; nose.position.set(0, faceY() / s, 0.11); g.add(nose);
-  }
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 24, 18), skin); head.scale.set(0.9, 1.1, 1); head.position.set(0, faceY() / s, 0); head.castShadow = head.receiveShadow = true; g.add(head);
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.04, 8), skin); nose.rotation.x = Math.PI / 2; nose.position.set(0, faceY() / s, 0.11); g.add(nose);
   g.scale.setScalar(s);
   g.rotation.y = THREE.MathUtils.degToRad(subject.rot);
   g.userData.kind = 'subject';
 }
-let HEAD = null;   // { geometry, material, k: scale, eye: eye height above the mesh origin after scaling }
-const faceY = () => (subject.pose === 'stand' ? 1.62 : 1.48) * subject.h / 1.75;
+let HUMAN = null;   // rigged person template (cloned per rebuild)
+// Pose the rigged person: arms relaxed, and for "seated" thighs forward and knees bent on a stool.
+// Bone names follow Mixamo (Hips, Spine, LeftArm, LeftForeArm, LeftUpLeg, LeftLeg, Head, HeadTop_End…).
+function buildHuman(){
+  const g = subject.group; g.clear(); g.scale.setScalar(1); subject.eye = null;
+  const h = SkeletonUtils.clone(HUMAN), B = {};
+  h.traverse(o => { if (o.isBone) B[o.name.replace(/^mixamorig:?/, '')] = o; });
+  g.add(h); g.rotation.set(0, 0, 0); g.position.y = 0;
+  g.updateMatrixWorld(true);
+  const rest = new THREE.Box3().setFromObject(h, true), k = subject.h / (rest.max.y - rest.min.y);
+  h.scale.multiplyScalar(k);
+  const rot = (n, x, y, z) => { const b = B[n]; if (b) b.rotateX(x).rotateY(y).rotateZ(z); };
+  rot('LeftArm', HUMAN_POSE.arm, 0, 0); rot('RightArm', HUMAN_POSE.arm, 0, 0);
+  rot('LeftForeArm', HUMAN_POSE.fore, 0, 0); rot('RightForeArm', HUMAN_POSE.fore, 0, 0);
+  if (subject.pose === 'sit') {
+    rot('LeftUpLeg', Math.PI / 2, 0, 0); rot('RightUpLeg', Math.PI / 2, 0, 0);
+    rot('LeftLeg', -Math.PI / 2, 0, 0); rot('RightLeg', -Math.PI / 2, 0, 0);
+    const seat = 0.5, stool = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, seat, 20), matStd(0x222225, 0.5, 0.3));
+    stool.position.y = seat / 2; stool.castShadow = stool.receiveShadow = true; g.add(stool);
+    g.updateMatrixWorld(true);
+    const hips = B.Hips.getWorldPosition(new THREE.Vector3());
+    h.position.y += seat + 0.1 - hips.y;   // pelvis resting on the seat
+    h.position.z -= hips.z;
+  }
+  g.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(h, true);
+  if (subject.pose === 'stand') h.position.y -= box.min.y;
+  g.updateMatrixWorld(true);
+  const head = B.Head.getWorldPosition(new THREE.Vector3()), top = (B.HeadTop_End || B.Head).getWorldPosition(new THREE.Vector3());
+  subject.eye = head.y + (top.y - head.y) * 0.45;
+  g.rotation.y = THREE.MathUtils.degToRad(subject.rot);
+  g.userData.kind = 'subject';
+}
+const HUMAN_POSE = { arm:1.2, fore:0.15 };
+const faceY = () => subject.eye != null ? subject.eye : (subject.pose === 'stand' ? 1.62 : 1.48) * subject.h / 1.75;
 function facePoint(){ const p = subject.group.position.clone(); p.y = faceY(); return p; }
 function faceNormal(){ return new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), subject.group.rotation.y); }
 scene.add(subject.group);
@@ -613,15 +662,11 @@ const tidy = o => o.traverse(m => {
       loadGLB('assets/3d/room-a.glb', e => { if (e.total) { const p = Math.min(100, Math.round(e.loaded / e.total * 100)); $('loadBar').style.width = p + '%'; $('loadTxt').textContent = p + '%'; } }),
       ...keys.map(k => loadGLB('assets/3d/' + MAN.assets[k].file))]);
     keys.forEach((k, i) => { tidy(parts[i]); ASSET[k] = parts[i]; });
-    try {   // Lee Perry-Smith head scan (CC BY 3.0) from the three.js examples
-      const hs = await loadGLB('assets/3d/head/LeePerrySmith.glb'), tl = new THREE.TextureLoader();
-      let geo = null; hs.traverse(o => { if (o.isMesh && !geo) geo = o.geometry; });
-      const map = tl.load('assets/3d/head/Map-COL.jpg'); map.colorSpace = THREE.SRGBColorSpace;
-      const nrm = tl.load('assets/3d/head/Infinite-Level_02_Tangent_SmoothUV.jpg');
-      geo.computeBoundingBox(); const bb = geo.boundingBox, hgt = bb.max.y - bb.min.y, k = 0.3 / hgt;
-      geo.translate(-(bb.min.x + bb.max.x) / 2, 0, -(bb.min.z + bb.max.z) / 2);
-      HEAD = { geometry:geo, material:new THREE.MeshStandardMaterial({ map, normalMap:nrm, roughness:0.62, metalness:0 }), k, eye:(bb.min.y + hgt * 0.68) * k };
-    } catch (_) { HEAD = null; }
+    try {   // full-body textured, rigged person (Mixamo "Michelle" from the three.js examples)
+      HUMAN = await loadGLB('assets/3d/human/Michelle.glb');
+      HUMAN.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.frustumCulled = false; } });
+      tidy(HUMAN);
+    } catch (_) { HUMAN = null; }
     tidy(room);
     room.traverse(o => { if (o.isMesh) { o.receiveShadow = true; o.castShadow = o.geometry.boundingSphere ? o.geometry.boundingSphere.radius < 3 : true; } });
     const b27 = room.getObjectByName('backdrop_27'), b5 = room.getObjectByName('backdrop_5');
@@ -630,6 +675,9 @@ const tidy = o => o.traverse(m => {
     [b27, b5].forEach(b => { if (b) { b.material = b.material.clone(); b.material.roughness = 1; b.material.metalness = 0; } });
     if (b5) b5.material.color.set(0x3f9a46);
     setupMirror(room); setupShelf(room);
+    // room shell walls with their inward normals (three.js axes) for the cut-away view
+    [['WALL_xp', -1, 0], ['WALL_xn', 1, 0], ['WALL_yp', 0, 1], ['WALL_yn', 0, -1]].forEach(([n, x, z]) => {
+      const o = room.getObjectByName(n); if (o) WALLS.push({ o, inward:new THREE.Vector3(x, 0, z) }); });
     scene.add(room); roomObj = room;
     $('loading').hidden = true;
     start();
@@ -904,6 +952,9 @@ function setMode(eye){
   });
   bounceAmb.intensity = (eye ? bounceEyeE : bounceE) / Math.PI;
   CEIL.tubes.material.emissiveIntensity = 3 / exp;   // lit tubes read as bright white whatever the exposure
+  // The Sims-style cut-away: in the free view, walls standing between the viewer and the room are hidden
+  const fwd = viewCam.getWorldDirection(new THREE.Vector3()).setY(0).normalize(), cut = eye && $('cut').checked;
+  WALLS.forEach(w => { w.o.visible = !(cut && w.inward.dot(fwd) > 0.25); });
   renderer.toneMappingExposure = exp;
 }
 
@@ -977,6 +1028,7 @@ $('addBtn').addEventListener('click', () => {
 });
 $('houseN').addEventListener('input', () => { refresh(); save(); });
 $('frus').addEventListener('change', () => refresh());
+$('cut').addEventListener('change', () => refresh());
 $('resetBtn').addEventListener('click', () => { sample(); fillCamSelects(); applyBackdrops(); select(null); refresh(); save(); });
 $('addPropBtn').addEventListener('click', () => {
   const P0 = facePoint(), n = faceNormal();
