@@ -1,0 +1,97 @@
+{
+ "floor": 0,
+ "assets": {
+  "amaran200": {
+   "file": "amaran200.glb",
+   "kind": "light",
+   "front": 0.1447,
+   "emit": [
+    -0.0069,
+    -0.0152,
+    -0.1447
+   ],
+   "radius": 0.0665,
+   "mount": 0.2065,
+   "tilt_deg": -3.9
+  },
+  "amaran300": {
+   "file": "amaran300.glb",
+   "kind": "light",
+   "front": 0.161,
+   "emit": [
+    0.0071,
+    -0.0261,
+    -0.161
+   ],
+   "radius": 0.0551,
+   "mount": 0.2345,
+   "tilt_deg": -5.5
+  },
+  "stand": {
+   "file": "stand.glb",
+   "kind": "stand",
+   "tip": 1.2903,
+   "ext": [
+    "STAND_EXT1",
+    "STAND_EXT2"
+   ],
+   "maxExt": 1.2
+  },
+  "desk120": {
+   "file": "desk120.glb",
+   "kind": "desk",
+   "size": [
+    1.204,
+    0.736,
+    0.608
+   ]
+  },
+  "desk160": {
+   "file": "desk160.glb",
+   "kind": "desk",
+   "size": [
+    1.596,
+    0.729,
+    0.608
+   ]
+  }
+ },
+ "backdrops": {
+  "backdrop_27": {
+   "min": [
+    -4.1227,
+    0.0477,
+    1.1931
+   ],
+   "max": [
+    -2.1175,
+    3.8576,
+    -1.5069
+   ]
+  },
+  "backdrop_5": {
+   "min": [
+    -4.0038,
+    0.0497,
+    2.3431
+   ],
+   "max": [
+    -1.9986,
+    3.8596,
+    -2.6569
+   ]
+  }
+ },
+ "room": {
+  "min": [
+   -4.5701,
+   -0.0356,
+   4.0698
+  ],
+  "max": [
+   4.5701,
+   3.8686,
+   -4.0698
+  ]
+ }
+}

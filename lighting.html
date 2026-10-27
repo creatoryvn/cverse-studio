@@ -121,6 +121,9 @@ input[type=range]{width:100%;accent-color:var(--pink)}
   .panel-only{display:flex!important}
 }
 .panel-only{display:none}
+.swatches{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 4px 26px}
+.swatches button{width:24px;height:24px;border-radius:50%;border:2px solid rgba(255,255,255,.25);cursor:pointer;padding:0}
+.swatches button[aria-pressed="true"]{border-color:#fff;box-shadow:0 0 0 2px var(--pink,#ff4f8b)}
 .tip{margin-top:6px;font-size:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .tip button{padding:3px 10px;border-radius:999px;border:1px solid var(--edge);background:rgba(255,255,255,.1);color:inherit;font:inherit;font-weight:600;cursor:pointer}
 </style>
@@ -147,12 +150,19 @@ input[type=range]{width:100%;accent-color:var(--pink)}
       <div class="row" style="margin-top:8px"><select id="newMod" aria-label="Modifier"></select><button class="btn pink" type="button" id="addBtn" data-t="add">+ Thêm</button></div>
     </section>
     <section class="sec">
+      <h3 data-t="props">Thêm vật dụng</h3>
+      <div class="row"><select id="newProp" aria-label="Prop"></select><button class="btn pink" type="button" id="addPropBtn" data-t="add">+ Thêm</button></div>
+    </section>
+    <section class="sec">
       <h3 data-t="scene">Trong cảnh</h3>
       <div class="list" id="list" role="listbox" aria-label="Scene"></div>
     </section>
     <section class="sec" id="propsSec"><div class="props" id="props"></div></section>
     <section class="sec">
       <h3 data-t="room">Phòng</h3>
+      <label class="chk"><input type="checkbox" id="bd27"> <span data-t="bd27">Phông màu 2,7 m</span></label>
+      <div class="swatches" id="bdColors" role="group" aria-label="Backdrop colour"></div>
+      <label class="chk" style="margin:8px 0"><input type="checkbox" id="bd5"> <span data-t="bd5">Phông xanh lá 5 m</span></label>
       <label class="chk"><input type="checkbox" id="house"> <span data-t="house">Bật đèn trần phòng (≈150 lux)</span></label>
       <p class="note" style="margin-top:8px" data-t="eye">Góc tự do: nhìn như mắt thường, không phụ thuộc máy ảnh. Khung máy ảnh theo đúng ISO, tốc độ, khẩu độ.</p>
       <div class="row" style="margin-top:12px"><button class="btn" type="button" id="shareBtn" data-t="share">Lưu &amp; chép link</button><button class="btn" type="button" id="resetBtn" data-t="reset">Bố trí mẫu</button></div>
@@ -206,7 +216,9 @@ const T = {
   house:['Bật đèn trần phòng (≈150 lux)','Room ceiling lights on (≈150 lux)','천장 조명 켜기 (≈150 lux)'],
   eye:['Góc tự do: nhìn như mắt thường, không phụ thuộc máy ảnh. Khung máy ảnh theo đúng ISO, tốc độ, khẩu độ.','Free view: what your eyes see, independent of the camera. The camera frame follows its ISO, shutter and aperture.','자유 시점: 카메라와 무관하게 눈으로 보는 밝기. 카메라 화면은 ISO·셔터·조리개를 그대로 따릅니다.'],
   bounce:['Ánh sáng hắt (tường, sàn, phông)','Bounce (walls, floor, backdrop)','반사광 (벽·바닥·배경)'],
-  tip:['Gợi ý','Try','추천'], apply:['Áp dụng','Apply','적용'],
+  tip:['Gợi ý','Try','추천'], props:['Thêm vật dụng','Add furniture','소품 추가'], prop:['Vật dụng','Furniture','소품'],
+  propHint:['Kéo mũi tên để di chuyển trên sàn.','Drag the arrows to move it across the floor.','화살표를 드래그해 바닥에서 이동하세요.'],
+  delProp:['Xóa vật dụng','Remove','삭제'], bd27:['Phông màu 2,7 m','2.7 m colour backdrop','2.7 m 컬러 배경지'], bd5:['Phông xanh lá 5 m','5 m green screen','5 m 그린 스크린'], apply:['Áp dụng','Apply','적용'],
   share:['Lưu & chép link','Save & copy link','저장 & 링크 복사'], reset:['Bố trí mẫu','Sample setup','기본 세팅'],
   disclaimer:['Kết quả mang tính tham khảo (sai số khoảng ±1 stop). Thông số đèn lấy theo công bố của hãng; bóng đổ và ánh sáng phản xạ được mô phỏng gần đúng.',
     'Results are a guide (about ±1 stop). Light output follows manufacturer specs; shadows and bounce light are approximated.',
@@ -236,7 +248,7 @@ function applyLang(){
   document.querySelectorAll('[data-t]').forEach(el => { if (!el.dataset.base) el.dataset.base = el.innerHTML; el.textContent = t(el.dataset.t); });
   document.querySelectorAll('[data-lang]').forEach(b => b.setAttribute('aria-pressed', b.dataset.lang === LANG));
   if (LANG === 'ko' && !$('fontKo')) { const k = document.createElement('link'); k.id = 'fontKo'; k.rel = 'stylesheet'; k.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;800&display=swap'; document.head.appendChild(k); }
-  fillFixtureSelect(); renderList(); renderProps(); updateMeter();
+  fillFixtureSelect(); renderSwatches(); applyBackdrops(); renderList(); renderProps(); updateMeter();
 }
 document.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => { LANG = b.dataset.lang; try { localStorage.setItem('cv-lang', LANG); } catch (_) {} applyLang(); }));
 
@@ -250,8 +262,8 @@ const FIX = {
   dp1000: { name:'Godox DP1000III', kind:'flash', gn:102, ws:1000, reflBeam:60, free:true },
   ef150:  { name:'Jinbei EF-150',   kind:'led', bare:5000,  bareBeam:110, refl:18000,  reflBeam:50, flux:15700, cct:[5500,5500], free:true, est:true },
   kino:   { name:'Kino light',      kind:'panel', lux:1500, cct:[5600,5600], free:true, est:true },
-  a200:   { name:'Amaran 200x S',   kind:'led', bare:6400,  bareBeam:111, refl:45400,  reflBeam:26, flux:17000, cct:[2700,6500] },
-  a300c:  { name:'Amaran 300c',     kind:'led', bare:9370,  bareBeam:90,  refl:26580,  reflBeam:65, flux:19389, cct:[2500,7500] },
+  a200:   { name:'Amaran 200x S',   kind:'led', bare:6400,  bareBeam:111, refl:45400,  reflBeam:26, flux:17000, cct:[2700,6500], model:'amaran200' },
+  a300c:  { name:'Amaran 300c',     kind:'led', bare:9370,  bareBeam:90,  refl:26580,  reflBeam:65, flux:19389, cct:[2500,7500], model:'amaran300' },
   ls300:  { name:'Aputure LS 300x', kind:'led', bare:6300,  bareBeam:105, refl:20500,  reflBeam:55, flux:19800, cct:[2700,6500] },
   s400:   { name:'Aputure STORM 400x', kind:'led', bare:27100, bareBeam:70, refl:64600, reflBeam:35, flux:36000, cct:[2500,10000], est:true },
   ls600:  { name:'Aputure LS 600x Pro', kind:'led', bare:16060, bareBeam:105, refl:63900, reflBeam:55, flux:50400, cct:[2700,6500] },
@@ -278,7 +290,13 @@ function cctGain(fix, k){
 const C = 250;                                   // incident-meter calibration constant
 const ISOS = [100,200,400,800,1600,3200], SHUT = [30,60,100,125,160,200,250], APS = [1.8,2,2.8,4,5.6,8,11,16];
 const FLASH_STEPS = [0,1,2,3,4,5,6,7];           // 1/1 .. 1/128
-const ROOM = { x0:-4.3, x1:4.3, z0:-3.8, z1:3.8, h:3.9 };
+const ROOM = { x0:-4.4, x1:4.4, z0:-3.9, z1:3.9, h:3.9 };
+// movable furniture from the Blender file
+const PROPS = { desk120:['Bàn desk 1,2 m','Desk 1.2 m','데스크 1.2 m'], desk160:['Bàn desk 1,6 m','Desk 1.6 m','데스크 1.6 m'] };
+// the studio's 2.7 m seamless paper colours (same list as the main site)
+const BD_COLORS = [['Xanh dương','Blue','블루','#3B78D8'],['Xám','Grey','그레이','#6B6B6B'],['Xanh lá','Green','그린','#5A9E4B'],['Đỏ','Red','레드','#A31F0E'],
+  ['Đen','Black','블랙','#0B0B0B'],['Vàng','Yellow','옐로','#F6F12B'],['Hồng','Pink','핑크','#F79BE3'],['Kem','Cream','크림','#FBE0A1']];
+const bd = { on27:true, c:1, on5:false, m27:null, m5:null };
 
 // ---------- renderer / scene ----------
 const stage = $('stage');
@@ -298,7 +316,7 @@ scene.background = new THREE.Color(0x0b0b0c);
 const viewCam = new THREE.PerspectiveCamera(50, 1, 0.05, 60);
 viewCam.position.set(2.9, 2.7, 3.0);
 const orbit = new OrbitControls(viewCam, renderer.domElement);
-orbit.target.set(-1.6, 1, 0); orbit.enableDamping = true; orbit.maxPolarAngle = Math.PI * 0.49;
+orbit.target.set(-1.1, 1, 0.15); orbit.enableDamping = true; orbit.maxPolarAngle = Math.PI * 0.49;
 orbit.minDistance = 0.6; orbit.maxDistance = 14;
 const tc = new TransformControls(viewCam, renderer.domElement);
 tc.setSize(0.8); scene.add(tc);
@@ -380,15 +398,22 @@ function layoutTripod(group, height){
 // ---------- lights ----------
 const lights = [];     // { id, fix, mod, p(0..100 or flash step), cct, aim, yaw, tilt, group, head, light, front }
 let lid = 0;
-const standMat = matStd(0x2a2a2d, 0.5, 0.4), headMat = matStd(0x1a1a1c, 0.4, 0.3);
+const headMat = matStd(0x1a1a1c, 0.4, 0.3);
+// models exported from the studio's Blender file (see manifest.json: light pivots, stand tip height, desk sizes)
+const ASSET = {}; let MAN = null;
+function cloneAsset(key){ const o = ASSET[key].clone(true); o.traverse(m => { if (m.isMesh) m.castShadow = m.receiveShadow = true; }); return o; }
+// head pivot sits this far above the stand tip (the light's yoke); generic heads use a short spigot
+const mountOf = L => FIX[L.fix].model ? MAN.assets[FIX[L.fix].model].mount : 0.12;
+function standRange(L){ const s = MAN.assets.stand, m = mountOf(L); return [s.tip + m, s.tip + s.maxExt + m]; }
 function addLight(o){
   const L = Object.assign({ id:++lid, mod:'bare', p:o && FIX[o.fix] && FIX[o.fix].kind === 'flash' ? 3 : 50, cct:5600, aim:true, yaw:0, tilt:-15 }, o);
   const g = new THREE.Group(); g.userData.kind = 'light'; g.userData.L = L;
-  const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 1, 8), standMat); stand.name = 'stand'; stand.castShadow = true; g.add(stand);
-  for (let i = 0; i < 3; i++) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 1, 6), standMat); leg.name = 'leg'; leg.userData.a = i * Math.PI * 2 / 3; g.add(leg); }
+  const stand = cloneAsset('stand'); stand.name = 'standModel'; g.add(stand);
+  stand.userData.ext = MAN.assets.stand.ext.map(n => { const node = stand.getObjectByName(n); return { node, p0:node.position.clone() }; });
   const head = new THREE.Group(); g.add(head);
-  g.position.set(o.x, o.y, o.z);
   L.group = g; L.head = head;
+  const [y0, y1] = standRange(L);
+  g.position.set(o.x, THREE.MathUtils.clamp(o.y, y0, y1), o.z);
   buildHead(L);
   L.bounce = new THREE.PointLight(0xffffff, 0, 0, 2); L.bounceAt = new THREE.Vector3();
   scene.add(g, L.bounce); lights.push(L);
@@ -398,24 +423,27 @@ function dropLight(L){ scene.remove(L.group, L.bounce); if (L.light.target) scen
 function buildHead(L){
   const head = L.head; head.clear();
   if (L.light) { scene.remove(L.light.target); }
-  const fix = FIX[L.fix], mod = MOD[L.mod];
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.24, 16), headMat); body.rotation.x = Math.PI / 2; body.position.z = 0.12; body.castShadow = true; head.add(body);
+  const fix = FIX[L.fix], mod = MOD[L.mod], man = fix.model && MAN.assets[fix.model];
+  // modifiers mount on the light's front (Bowens ring); the head's -Z is the beam
+  const mnt = new THREE.Group(); head.add(mnt);
+  if (man) { head.add(cloneAsset(fix.model)); mnt.position.fromArray(man.emit); }
+  else { const body = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.24, 16), headMat); body.rotation.x = Math.PI / 2; body.position.z = 0.12; body.castShadow = true; head.add(body); }
   const emit = new THREE.MeshStandardMaterial({ color:0x111111, emissive:0xffffff, emissiveIntensity:1, roughness:1, side:THREE.DoubleSide });
   let front;
   if (fix.kind === 'panel') {
-    const box = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.3, 0.08), headMat); box.castShadow = true; head.add(box);
-    front = new THREE.Mesh(new THREE.PlaneGeometry(0.56, 0.24), emit); front.position.z = -0.042; front.rotation.y = Math.PI; head.add(front);
+    const box = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.3, 0.08), headMat); box.castShadow = true; mnt.add(box);
+    front = new THREE.Mesh(new THREE.PlaneGeometry(0.56, 0.24), emit); front.position.z = -0.042; front.rotation.y = Math.PI; mnt.add(front);
   } else if (mod.shape === 'cone') {
-    const refl = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.06, 0.12, 20, 1, true), matStd(0x8a8a8f, 0.3, 0.8)); refl.rotation.x = -Math.PI / 2; refl.position.z = -0.05; head.add(refl);
-    front = new THREE.Mesh(new THREE.CircleGeometry(0.055, 20), emit); front.position.z = -0.02; front.rotation.y = Math.PI; head.add(front);
+    if (!mod.naked) { const refl = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.06, 0.12, 20, 1, true), matStd(0x8a8a8f, 0.3, 0.8)); refl.rotation.x = -Math.PI / 2; refl.position.z = -0.05; mnt.add(refl); }
+    front = new THREE.Mesh(new THREE.CircleGeometry(man ? man.radius * 0.8 : 0.055, 20), emit); front.position.z = -0.005; front.rotation.y = Math.PI; mnt.add(front);
   } else if (mod.shape === 'oct') {
-    const r = mod.size / 2, sb = new THREE.Mesh(new THREE.CylinderGeometry(r, 0.1, 0.42, 8, 1, true), matStd(0x0c0c0d, 0.8)); sb.rotation.x = -Math.PI / 2; sb.position.z = -0.21; sb.castShadow = true; head.add(sb);
-    front = new THREE.Mesh(new THREE.CircleGeometry(r * 0.98, 8), emit); front.position.z = -0.42; front.rotation.y = Math.PI; head.add(front);
+    const r = mod.size / 2, sb = new THREE.Mesh(new THREE.CylinderGeometry(r, 0.1, 0.42, 8, 1, true), matStd(0x0c0c0d, 0.8)); sb.rotation.x = -Math.PI / 2; sb.position.z = -0.21; sb.castShadow = true; mnt.add(sb);
+    front = new THREE.Mesh(new THREE.CircleGeometry(r * 0.98, 8), emit); front.position.z = -0.42; front.rotation.y = Math.PI; mnt.add(front);
   } else if (mod.shape === 'strip') {
-    const sb = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.6, 0.28), matStd(0x0c0c0d, 0.8)); sb.position.z = -0.16; sb.castShadow = true; head.add(sb);
-    front = new THREE.Mesh(new THREE.PlaneGeometry(0.33, 1.56), emit); front.position.z = -0.302; front.rotation.y = Math.PI; head.add(front);
+    const sb = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.6, 0.28), matStd(0x0c0c0d, 0.8)); sb.position.z = -0.16; sb.castShadow = true; mnt.add(sb);
+    front = new THREE.Mesh(new THREE.PlaneGeometry(0.33, 1.56), emit); front.position.z = -0.302; front.rotation.y = Math.PI; mnt.add(front);
   } else {
-    front = new THREE.Mesh(new THREE.SphereGeometry(mod.size / 2, 24, 16), emit); front.position.z = -0.38; head.add(front);
+    front = new THREE.Mesh(new THREE.SphereGeometry(mod.size / 2, 24, 16), emit); front.position.z = -0.38; mnt.add(front);
   }
   L.front = front;
   const isBall = mod.shape === 'ball' && fix.kind !== 'panel';
@@ -430,12 +458,20 @@ function buildHead(L){
     scene.add(light.target);
   }
   light.position.copy(front.position);
-  head.add(light); L.light = light;
+  mnt.add(light); L.light = light;
+}
+// stand on the floor under the head; the two telescopic sections share the extension like a real stand
+function layoutStand(L){
+  const g = L.group, st = g.getObjectByName('standModel'), s = MAN.assets.stand;
+  st.position.set(0, -g.position.y, 0);
+  const ext = THREE.MathUtils.clamp(g.position.y - mountOf(L) - s.tip, 0, s.maxExt);
+  st.userData.ext.forEach(e => e.node.position.copy(e.p0));
+  g.updateMatrixWorld(true);
+  st.userData.ext.forEach(e => { const w = e.node.getWorldPosition(new THREE.Vector3()); w.y += ext / 2; e.node.position.copy(e.node.parent.worldToLocal(w)); e.node.updateMatrixWorld(true); });
 }
 function layoutLight(L){
-  const g = L.group, y = g.position.y;
-  const stand = g.children.find(c => c.name === 'stand'); stand.scale.y = y; stand.position.y = -y / 2;
-  layoutTripod(g, y);
+  const g = L.group;
+  layoutStand(L);
   const target = L.aim ? facePoint() : g.position.clone().add(new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(THREE.MathUtils.degToRad(L.tilt), THREE.MathUtils.degToRad(L.yaw), 0, 'YXZ')));
   L.head.lookAt(target);  // head's -Z faces the target because geometry points along -Z after the flip below
   L.head.rotateY(Math.PI);
@@ -497,7 +533,8 @@ function updateBounce(){
     const o = new THREE.Vector3(); L.front.getWorldPosition(o);
     const dir = L.light.target.position.clone().sub(o).normalize();
     bray.set(o, dir); bray.far = 20;
-    const hit = bray.intersectObject(roomObj, true)[0];
+    const shown = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
+    const hit = bray.intersectObject(roomObj, true).find(h => shown(h.object));
     if (!hit) return;
     const m = Array.isArray(hit.object.material) ? hit.object.material[0] : hit.object.material;
     const c = m && m.color ? m.color.clone() : new THREE.Color(0.5, 0.5, 0.5);
@@ -522,38 +559,73 @@ const areaOf = L => FIX[L.fix].kind === 'panel' ? 0.13 : (MOD[L.mod].area || 0);
 const loadMgr = new THREE.LoadingManager();
 const draco = new DRACOLoader(); draco.setDecoderPath('assets/draco/'); draco.setDecoderConfig({ type:'js' });
 const gltf = new GLTFLoader(loadMgr); gltf.setDRACOLoader(draco);
-gltf.load('assets/3d/room-a.glb', g => {
-  const room = g.scene;
-  room.traverse(o => {
-    if (!o.isMesh) return;
-    o.receiveShadow = true;
-    o.castShadow = o.geometry.boundingSphere ? o.geometry.boundingSphere.radius < 3 : true;
-    const ms = Array.isArray(o.material) ? o.material : [o.material];
-    ms.forEach(m => { if (m && m.isMeshStandardMaterial) { m.envMapIntensity = 0; if (m.emissive) m.emissive.setScalar(0); } });
-    if (o.name.startsWith('Plane014') || o.name.startsWith('Plane.014')) o.material = matStd(0xf2f1ee, 0.9);
-  });
-  scene.add(room); roomObj = room;
-  $('loading').hidden = true;
-  start();
-}, e => { if (e.total) { const p = Math.min(100, Math.round(e.loaded / e.total * 100)); $('loadBar').style.width = p + '%'; $('loadTxt').textContent = p + '%'; } },
-err => { $('loadTxt').textContent = 'Không tải được mô hình phòng: ' + err.message; });
+const loadGLB = (url, onp) => new Promise((res, rej) => gltf.load(url, g => res(g.scene), onp, rej));
+const tidy = o => o.traverse(m => {
+  if (!m.isMesh) return;
+  (Array.isArray(m.material) ? m.material : [m.material]).forEach(x => { if (x && x.isMeshStandardMaterial) { x.envMapIntensity = 0; if (x.emissive) x.emissive.setScalar(0); } });
+});
+(async () => {
+  try {
+    MAN = await (await fetch('assets/3d/manifest.json')).json();
+    const keys = Object.keys(MAN.assets);
+    const [room, ...parts] = await Promise.all([
+      loadGLB('assets/3d/room-a.glb', e => { if (e.total) { const p = Math.min(100, Math.round(e.loaded / e.total * 100)); $('loadBar').style.width = p + '%'; $('loadTxt').textContent = p + '%'; } }),
+      ...keys.map(k => loadGLB('assets/3d/' + MAN.assets[k].file))]);
+    keys.forEach((k, i) => { tidy(parts[i]); ASSET[k] = parts[i]; });
+    tidy(room);
+    room.traverse(o => { if (o.isMesh) { o.receiveShadow = true; o.castShadow = o.geometry.boundingSphere ? o.geometry.boundingSphere.radius < 3 : true; } });
+    const b27 = room.getObjectByName('backdrop_27'), b5 = room.getObjectByName('backdrop_5');
+    bd.m27 = b27; bd.m5 = b5;
+    if (b27) { b27.material = b27.material.clone(); b27.material.roughness = 0.95; b27.material.metalness = 0; }
+    scene.add(room); roomObj = room;
+    $('loading').hidden = true;
+    start();
+  } catch (err) { $('loadTxt').textContent = 'Không tải được mô hình phòng: ' + err.message; }
+})();
+function applyBackdrops(){
+  if (bd.m27) { bd.m27.visible = bd.on27; bd.m27.material.color.set(BD_COLORS[bd.c][3]); }
+  if (bd.m5) bd.m5.visible = bd.on5;
+  $('bd27').checked = bd.on27; $('bd5').checked = bd.on5;
+  $('bdColors').querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-pressed', i === bd.c));
+  $('bdColors').hidden = !bd.on27;
+}
+function renderSwatches(){
+  $('bdColors').innerHTML = BD_COLORS.map((c, i) => `<button type="button" title="${c[LANG === 'en' ? 1 : LANG === 'ko' ? 2 : 0]}" aria-label="${c[LANG === 'en' ? 1 : LANG === 'ko' ? 2 : 0]}" style="background:${c[3]}"></button>`).join('');
+  $('bdColors').querySelectorAll('button').forEach((b, i) => b.addEventListener('click', () => { bd.c = i; applyBackdrops(); refresh(); save(); }));
+}
+
+// ---------- props (desks) ----------
+const props = [];
+function addProp(o){
+  const P = { key:o.key, rot:o.rot || 0 }, g = new THREE.Group();
+  g.add(cloneAsset(o.key)); g.position.set(o.x, 0, o.z); g.rotation.y = THREE.MathUtils.degToRad(P.rot);
+  g.userData.kind = 'prop'; g.userData.P = P; P.group = g;
+  scene.add(g); props.push(P); return P;
+}
+function dropProp(P){ scene.remove(P.group); props.splice(props.indexOf(P), 1); }
 
 // ---------- state ----------
 function sample(){
   lights.splice(0).forEach(L => { dropLight(L); });
-  subject.pose = 'stand'; subject.h = 1.72; subject.rot = 90; subject.group.position.set(-2.4, 0, -0.1); buildMannequin();
-  Object.assign(camRig, { f:50, iso:100, sh:125, ap:8, aim:true }); camRig.group.position.set(1.0, 1.45, -0.1);
-  addLight({ fix:'dp600', mod:'qrp70', p:2, x:-0.9, y:2.2, z:1.5 });
-  addLight({ fix:'a200', mod:'lantern', p:35, cct:5600, x:-0.8, y:1.7, z:-1.7 });
-  addLight({ fix:'ls300', mod:'bare', p:40, cct:5600, x:-3.7, y:2.6, z:-1.6 });
+  props.splice(0).forEach(P => scene.remove(P.group));
+  subject.pose = 'stand'; subject.h = 1.72; subject.rot = 90; subject.group.position.set(-1.1, 0, 0.15); buildMannequin();
+  Object.assign(camRig, { f:50, iso:100, sh:125, ap:8, aim:true }); camRig.group.position.set(2.4, 1.45, 0.15);
+  addLight({ fix:'dp600', mod:'qrp70', p:2, x:0.4, y:2.2, z:1.7 });
+  addLight({ fix:'a300c', mod:'bare', p:30, cct:5600, x:0.3, y:1.7, z:-1.5 });
+  addLight({ fix:'a200', mod:'none', p:60, cct:5600, x:-1.85, y:2.3, z:-1.3 });
+  Object.assign(bd, { on27:true, c:1, on5:false });
 }
 function serialize(){
   return { v:1, l:lights.map(L => [L.fix, L.mod, +L.group.position.x.toFixed(2), +L.group.position.y.toFixed(2), +L.group.position.z.toFixed(2), L.p, L.cct, L.aim ? 1 : 0, L.yaw, L.tilt]),
     c:[+camRig.group.position.x.toFixed(2), +camRig.group.position.y.toFixed(2), +camRig.group.position.z.toFixed(2), camRig.f, camRig.iso, camRig.sh, camRig.ap],
-    s:[+subject.group.position.x.toFixed(2), +subject.group.position.z.toFixed(2), subject.rot, subject.h, subject.pose], h:$('house').checked ? 1 : 0 };
+    s:[+subject.group.position.x.toFixed(2), +subject.group.position.z.toFixed(2), subject.rot, subject.h, subject.pose], h:$('house').checked ? 1 : 0,
+    p:props.map(P => [P.key, +P.group.position.x.toFixed(2), +P.group.position.z.toFixed(2), P.rot]), b:[bd.on27 ? 1 : 0, bd.c, bd.on5 ? 1 : 0] };
 }
 function restore(d){
   lights.splice(0).forEach(L => { dropLight(L); });
+  props.splice(0).forEach(P => scene.remove(P.group));
+  (d.p || []).forEach(a => { if (PROPS[a[0]]) addProp({ key:a[0], x:a[1], z:a[2], rot:a[3] }); });
+  if (d.b) Object.assign(bd, { on27:!!d.b[0], c:d.b[1] || 0, on5:!!d.b[2] });
   subject.group.position.set(d.s[0], 0, d.s[1]); subject.rot = d.s[2]; subject.h = d.s[3]; subject.pose = d.s[4]; buildMannequin();
   camRig.group.position.set(d.c[0], d.c[1], d.c[2]); [camRig.f, camRig.iso, camRig.sh, camRig.ap] = d.c.slice(3);
   d.l.forEach(a => { if (FIX[a[0]] && MOD[a[1]]) addLight({ fix:a[0], mod:a[1], x:a[2], y:a[3], z:a[4], p:a[5], cct:a[6], aim:!!a[7], yaw:a[8], tilt:a[9] }); });
@@ -573,18 +645,19 @@ function load(){
 let selected = null;   // { kind:'light'|'camera'|'subject', L? }
 function select(sel){
   selected = sel;
-  const obj = !sel ? null : sel.kind === 'light' ? sel.L.group : sel.kind === 'camera' ? camRig.group : subject.group;
-  if (obj) { tc.attach(obj); tc.showY = sel.kind !== 'subject'; } else tc.detach();
+  const obj = !sel ? null : sel.kind === 'light' ? sel.L.group : sel.kind === 'camera' ? camRig.group : sel.kind === 'prop' ? sel.P.group : subject.group;
+  if (obj) { tc.attach(obj); tc.showY = sel.kind !== 'subject' && sel.kind !== 'prop'; } else tc.detach();
   renderList(); renderProps();
 }
 function renderList(){
   const items = [{ kind:'subject', label:t('model'), sub:subject.pose === 'stand' ? t('stand') : t('sit'), color:'#bdb6ae' },
                  { kind:'camera', label:'Sony A7III', sub:`${camRig.f} mm · ISO ${camRig.iso}`, color:'#ff4f8b' }]
-    .concat(lights.map(L => ({ kind:'light', L, label:FIX[L.fix].name, sub:(FIX[L.fix].kind === 'flash' ? stops(L.p) : L.p + '%') + ' · ' + (FIX[L.fix].kind === 'panel' ? 'Kino' : MOD[L.mod].name[LANG === 'en' ? 1 : LANG === 'ko' ? 2 : 0]), color:'#' + kelvinRGB(L.cct).getHexString(), tag:FIX[L.fix].free })));
-  $('list').innerHTML = items.map((it, i) => `<button class="item" role="option" type="button" data-i="${i}" aria-selected="${!!selected && selected.kind === it.kind && selected.L === it.L}">
+    .concat(lights.map(L => ({ kind:'light', L, label:FIX[L.fix].name, sub:(FIX[L.fix].kind === 'flash' ? stops(L.p) : L.p + '%') + ' · ' + (FIX[L.fix].kind === 'panel' ? 'Kino' : MOD[L.mod].name[LANG === 'en' ? 1 : LANG === 'ko' ? 2 : 0]), color:'#' + kelvinRGB(L.cct).getHexString(), tag:FIX[L.fix].free })))
+    .concat(props.map(P => ({ kind:'prop', P, label:PROPS[P.key][LANG === 'en' ? 1 : LANG === 'ko' ? 2 : 0], sub:t('prop'), color:'#8a6a4a' })));
+  $('list').innerHTML = items.map((it, i) => `<button class="item" role="option" type="button" data-i="${i}" aria-selected="${!!selected && selected.kind === it.kind && selected.L === it.L && selected.P === it.P}">
     <span class="dot" style="color:${it.color};background:${it.color}"></span><span><b>${it.label}</b><small>${it.sub}</small></span>
     ${it.kind === 'light' ? `<span class="tag ${it.tag ? 'free' : 'rent'}">${it.tag ? t('free') : t('rent')}</span>` : ''}</button>`).join('');
-  $('list').querySelectorAll('.item').forEach(b => b.addEventListener('click', () => { const it = items[+b.dataset.i]; select({ kind:it.kind, L:it.L }); }));
+  $('list').querySelectorAll('.item').forEach(b => b.addEventListener('click', () => { const it = items[+b.dataset.i]; select({ kind:it.kind, L:it.L, P:it.P }); }));
 }
 function slider(id, label, min, max, step, val, fmt){ return `<div class="field"><label for="${id}">${label}<output id="${id}O">${fmt(val)}</output></label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"></div>`; }
 function renderProps(){
@@ -596,7 +669,7 @@ function renderProps(){
       ${flash ? slider('pPow', t('power'), 0, 7, 1, 7 - L.p, v => stops(7 - v)) : slider('pPow', t('power'), 1, 100, 1, L.p, v => v + '%')}
       ${!flash && fix.cct[0] !== fix.cct[1] ? slider('pCct', t('cct'), fix.cct[0], fix.cct[1], 100, L.cct, v => v + 'K') : ''}
       ${fix.kind !== 'panel' ? `<div class="field"><label for="pMod">${t('modifier')}</label><select id="pMod">${Object.entries(MOD).map(([k, m]) => `<option value="${k}"${k === L.mod ? ' selected' : ''}>${m.name[LANG === 'en' ? 1 : LANG === 'ko' ? 2 : 0]}</option>`).join('')}</select></div>` : ''}
-      ${slider('pH', t('height'), 0.4, 3.6, 0.05, L.group.position.y, v => (+v).toFixed(2) + ' m')}
+      ${slider('pH', t('height'), standRange(L)[0].toFixed(2), standRange(L)[1].toFixed(2), 0.01, L.group.position.y, v => (+v).toFixed(2) + ' m')}
       <label class="chk"><input type="checkbox" id="pAim"${L.aim ? ' checked' : ''}> ${t('aimSub')}</label>
       <div id="pManual"${L.aim ? ' hidden' : ''}>${slider('pYaw', t('yaw'), -180, 180, 1, L.yaw, v => v + '°')}${slider('pTilt', t('tilt'), -90, 45, 1, L.tilt, v => v + '°')}</div>
       <p class="note" id="pSpec">${specNote(L)}</p>
@@ -610,6 +683,12 @@ function renderProps(){
     on('pAim', el => { L.aim = el.checked; $('pManual').hidden = L.aim; });
     on('pYaw', el => L.yaw = +el.value); on('pTilt', el => L.tilt = +el.value);
     $('pDel').addEventListener('click', () => { dropLight(L); lights.splice(lights.indexOf(L), 1); select(null); refresh(); save(); });
+  } else if (selected.kind === 'prop') {
+    const P = selected.P;
+    box.innerHTML = `<h4>${PROPS[P.key][LANG === 'en' ? 1 : LANG === 'ko' ? 2 : 0]}</h4>${slider('prRot', t('yaw'), -180, 180, 5, P.rot, v => v + '°')}
+      <p class="note">${t('propHint')}</p><button class="btn danger" type="button" id="prDel">${t('delProp')}</button>`;
+    $('prRot').addEventListener('input', e => { P.rot = +e.target.value; $('prRotO').textContent = P.rot + '°'; P.group.rotation.y = THREE.MathUtils.degToRad(P.rot); save(); });
+    $('prDel').addEventListener('click', () => { dropProp(P); select(null); save(); });
   } else if (selected.kind === 'camera') {
     box.innerHTML = `<h4>${t('camera')}</h4>${slider('cF', t('focal'), 16, 135, 1, camRig.f, v => v + ' mm')}${slider('cH', t('height'), 0.4, 2.4, 0.05, camRig.group.position.y, v => (+v).toFixed(2) + ' m')}`;
     $('cF').addEventListener('input', e => { camRig.f = +e.target.value; $('cFO').textContent = camRig.f + ' mm'; refresh(); save(); renderList(); });
@@ -628,6 +707,9 @@ function fillFixtureSelect(){
   $('newFix').innerHTML = Object.entries(FIX).map(([k, f]) => `<option value="${k}">${f.name} · ${f.free ? t('free') : t('rent')}</option>`).join('');
   $('newMod').innerHTML = Object.entries(MOD).map(([k, m]) => `<option value="${k}">${m.name[LANG === 'en' ? 1 : LANG === 'ko' ? 2 : 0]}</option>`).join('');
   $('newFix').value = keep; $('newMod').value = keepM;
+  const keepP = $('newProp').value || 'desk120';
+  $('newProp').innerHTML = Object.entries(PROPS).map(([k, n]) => `<option value="${k}">${n[LANG === 'en' ? 1 : LANG === 'ko' ? 2 : 0]}</option>`).join('');
+  $('newProp').value = keepP;
 }
 function fillCamSelects(){
   $('iso').innerHTML = ISOS.map(v => `<option value="${v}">ISO ${v}</option>`).join('');
@@ -641,10 +723,10 @@ function fillCamSelects(){
 function constrain(obj){
   const p = obj.position;
   p.x = THREE.MathUtils.clamp(p.x, ROOM.x0, ROOM.x1); p.z = THREE.MathUtils.clamp(p.z, ROOM.z0, ROOM.z1);
-  if (obj === subject.group) p.y = 0;
+  if (obj === subject.group || obj.userData.kind === 'prop') p.y = 0;
   else if (obj === camRig.group) p.y = THREE.MathUtils.clamp(p.y, 0.4, 2.4);
-  else p.y = THREE.MathUtils.clamp(p.y, 0.4, 3.6);
-  if (selected && selected.kind !== 'subject') { const h = $(selected.kind === 'light' ? 'pH' : 'cH'); if (h) { h.value = p.y; const o = $(h.id + 'O'); if (o) o.textContent = p.y.toFixed(2) + ' m'; } }
+  else { const [y0, y1] = standRange(obj.userData.L); p.y = THREE.MathUtils.clamp(p.y, y0, y1); }
+  if (selected && selected.kind !== 'subject' && selected.kind !== 'prop') { const h = $(selected.kind === 'light' ? 'pH' : 'cH'); if (h) { h.value = p.y; const o = $(h.id + 'O'); if (o) o.textContent = p.y.toFixed(2) + ' m'; } }
 }
 function layoutCamera(){
   const g = camRig.group, y = g.position.y; layoutTripod(g, y);
@@ -751,12 +833,12 @@ renderer.domElement.addEventListener('pointerup', e => {
   const r = renderer.domElement.getBoundingClientRect();
   ndc.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
   ray.setFromCamera(ndc, viewCam);
-  const targets = [subject.group, camRig.group, ...lights.map(L => L.group)];
+  const targets = [subject.group, camRig.group, ...lights.map(L => L.group), ...props.map(P => P.group)];
   const hit = ray.intersectObjects(targets, true)[0];
   if (!hit) { select(null); return; }
   let o = hit.object; while (o && !o.userData.kind) o = o.parent;
   if (!o) return;
-  select(o.userData.kind === 'light' ? { kind:'light', L:o.userData.L } : { kind:o.userData.kind });
+  select(o.userData.kind === 'light' ? { kind:'light', L:o.userData.L } : o.userData.kind === 'prop' ? { kind:'prop', P:o.userData.P } : { kind:o.userData.kind });
 });
 
 // ---------- views & render loop ----------
@@ -808,7 +890,14 @@ $('addBtn').addEventListener('click', () => {
   refresh(); select({ kind:'light', L }); save();
 });
 $('house').addEventListener('change', () => { refresh(); save(); });
-$('resetBtn').addEventListener('click', () => { sample(); fillCamSelects(); select(null); refresh(); save(); });
+$('resetBtn').addEventListener('click', () => { sample(); fillCamSelects(); applyBackdrops(); select(null); refresh(); save(); });
+$('addPropBtn').addEventListener('click', () => {
+  const P0 = facePoint(), n = faceNormal();
+  const P = addProp({ key:$('newProp').value, x:THREE.MathUtils.clamp(P0.x + n.x * 1.2, ROOM.x0, ROOM.x1), z:THREE.MathUtils.clamp(P0.z + n.z * 1.2, ROOM.z0, ROOM.z1), rot:subject.rot });
+  select({ kind:'prop', P }); save();
+});
+$('bd27').addEventListener('change', e => { bd.on27 = e.target.checked; applyBackdrops(); refresh(); save(); });
+$('bd5').addEventListener('change', e => { bd.on5 = e.target.checked; applyBackdrops(); refresh(); save(); });
 $('shareBtn').addEventListener('click', () => {
   save();
   const base = /claude/i.test(location.hostname) || location.protocol === 'file:' ? 'https://creatoryvn.github.io/cverse-studio/lighting.html' : location.href.split('#')[0];
@@ -821,8 +910,7 @@ addEventListener('resize', layout);
 addEventListener('keydown', e => { if ((e.key === 'Delete' || e.key === 'Backspace') && selected && selected.kind === 'light' && document.activeElement === document.body) $('pDel') && $('pDel').click(); if (e.key === 'Escape') select(null); });
 
 function start(){
-  load(); fillCamSelects(); applyLang(); layout(); refresh(); select(null);
-  requestAnimationFrame(frame);
+  load(); fillCamSelects(); applyLang(); layout(); refresh(); select(null);  requestAnimationFrame(frame);
 }
 </script>
 </body>
