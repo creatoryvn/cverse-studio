@@ -221,6 +221,9 @@ const T = {
   scene:['Trong cảnh','In the scene','장면 구성'], room:['Phòng','Room','룸'],
   house:['Đèn trần (LED tuýp 1,2 m)','Ceiling lights (1.2 m LED tubes)','천장 조명 (1.2 m LED 튜브)'], tubes:['bóng','tubes','개'],
   cut:['Ẩn tường chính đối diện phông (góc tự do)','Hide the main wall facing the backdrop (free view)','배경 맞은편 메인 벽 숨기기 (자유 시점)'],
+  camAim:['Khóa hướng vào người mẫu','Lock aim on the model','모델 방향 고정'],
+  addModel:['+ Thêm người mẫu','+ Add model','+ 모델 추가'], delModel:['Xóa người mẫu','Remove model','모델 삭제'],
+  mainModel:['Máy đo, hướng đèn và hướng máy ảnh theo Người mẫu 1.','The meter, light aiming and camera lock follow Model 1.','측광·조명 방향·카메라 고정은 모델 1 기준입니다.'],
   sex:['Nhân vật','Character','인물'], male:['Nam','Male','남성'], female:['Nữ','Female','여성'],
   frus:['Hiện đường góc máy ảnh','Show camera view lines','카메라 화각 선 표시'], floorLux:['sàn','floor','바닥'],
   stockMsg:['Studio hiện có {n} đèn {name}. Nếu muốn thuê thêm, vui lòng báo studio trước. Bạn vẫn có thể thêm để thử bố trí.','The studio has {n} × {name}. To rent more, please tell the studio in advance. You can still add it to try the setup.','스튜디오 보유 {name}: {n}대. 추가 대여는 사전에 스튜디오에 문의해 주세요. 시뮬레이션에는 계속 추가할 수 있습니다.'],
@@ -402,11 +405,11 @@ const matStd = (c, r = 0.7, m = 0) => new THREE.MeshStandardMaterial({ color:c, 
 // ---------- subject (mannequin) ----------
 const subject = { group:new THREE.Group(), pose:'stand', h:1.68, rot:90, sex:'female' };
 const skin = matStd(0xcdb3a1, 0.65);
-function buildMannequin(){
-  if (HUMANS[subject.sex]) return buildHuman();
-  const g = subject.group; g.clear(); subject.eye = null;
-  const s = subject.h / 1.75, cap = (r, l, x, y, z, rx = 0, rz = 0) => { const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, l, 4, 10), skin); m.position.set(x, y, z); m.rotation.set(rx, 0, rz); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
-  if (subject.pose === 'stand') {
+function buildMannequin(M = subject){
+  if (HUMANS[M.sex]) return buildHuman(M);
+  const g = M.group; g.clear(); M.eye = null;
+  const s = M.h / 1.75, cap = (r, l, x, y, z, rx = 0, rz = 0) => { const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, l, 4, 10), skin); m.position.set(x, y, z); m.rotation.set(rx, 0, rz); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
+  if (M.pose === 'stand') {
     cap(0.075, 0.72, -0.1, 0.45, 0); cap(0.075, 0.72, 0.1, 0.45, 0);
     const torso = cap(0.17, 0.42, 0, 1.13, 0); torso.scale.z = 0.62;
     cap(0.05, 0.55, -0.27, 1.12, 0, 0, 0.08); cap(0.05, 0.55, 0.27, 1.12, 0, 0, -0.08);
@@ -422,24 +425,24 @@ function buildMannequin(){
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 24, 18), skin); head.scale.set(0.9, 1.1, 1); head.position.set(0, faceY() / s, 0); head.castShadow = head.receiveShadow = true; g.add(head);
   const nose = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.04, 8), skin); nose.rotation.x = Math.PI / 2; nose.position.set(0, faceY() / s, 0.11); g.add(nose);
   g.scale.setScalar(s);
-  g.rotation.y = THREE.MathUtils.degToRad(subject.rot);
-  g.userData.kind = 'subject';
+  g.rotation.y = THREE.MathUtils.degToRad(M.rot);
+  g.userData.kind = 'subject'; g.userData.M = M;
 }
 const HUMANS = {};   // rigged people (Mixamo male / female), cloned per rebuild
 // Pose the rigged person: arms relaxed, and for "seated" thighs forward and knees bent on a stool.
 // Bone names follow Mixamo (Hips, Spine, LeftArm, LeftForeArm, LeftUpLeg, LeftLeg, Head, HeadTop_End…).
-function buildHuman(){
-  const g = subject.group; g.clear(); g.scale.setScalar(1); subject.eye = null;
-  const h = SkeletonUtils.clone(HUMANS[subject.sex]), B = {};
+function buildHuman(M){
+  const g = M.group; g.clear(); g.scale.setScalar(1); M.eye = null;
+  const h = SkeletonUtils.clone(HUMANS[M.sex]), B = {};
   h.traverse(o => { if (o.isBone) B[o.name.replace(/^mixamorig:?/, '')] = o; });
   g.add(h); g.rotation.set(0, 0, 0); g.position.y = 0;
   g.updateMatrixWorld(true);
-  const rest = new THREE.Box3().setFromObject(h, true), k = subject.h / (rest.max.y - rest.min.y);
+  const rest = new THREE.Box3().setFromObject(h, true), k = M.h / (rest.max.y - rest.min.y);
   h.scale.multiplyScalar(k);
   const rot = (n, x, y, z) => { const b = B[n]; if (b) b.rotateX(x).rotateY(y).rotateZ(z); };
   rot('LeftArm', HUMAN_POSE.arm, 0, 0); rot('RightArm', HUMAN_POSE.arm, 0, 0);
   rot('LeftForeArm', HUMAN_POSE.fore, 0, 0); rot('RightForeArm', HUMAN_POSE.fore, 0, 0);
-  if (subject.pose === 'sit') {
+  if (M.pose === 'sit') {
     rot('LeftUpLeg', Math.PI / 2, 0, 0); rot('RightUpLeg', Math.PI / 2, 0, 0);
     rot('LeftLeg', -Math.PI / 2, 0, 0); rot('RightLeg', -Math.PI / 2, 0, 0);
     const seat = 0.5, stool = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, seat, 20), matStd(0x222225, 0.5, 0.3));
@@ -451,18 +454,26 @@ function buildHuman(){
   }
   g.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(h, true);
-  if (subject.pose === 'stand') h.position.y -= box.min.y;
+  if (M.pose === 'stand') h.position.y -= box.min.y;
   g.updateMatrixWorld(true);
   const head = B.Head.getWorldPosition(new THREE.Vector3()), top = (B.HeadTop_End || B.Head).getWorldPosition(new THREE.Vector3());
-  subject.eye = head.y + (top.y - head.y) * 0.45;
-  g.rotation.y = THREE.MathUtils.degToRad(subject.rot);
-  g.userData.kind = 'subject';
+  M.eye = head.y + (top.y - head.y) * 0.45;
+  g.rotation.y = THREE.MathUtils.degToRad(M.rot);
+  g.userData.kind = 'subject'; g.userData.M = M;
 }
 const HUMAN_POSE = { arm:1.2, fore:0.15 };
 const faceY = () => subject.eye != null ? subject.eye : (subject.pose === 'stand' ? 1.62 : 1.48) * subject.h / 1.75;
 function facePoint(){ const p = subject.group.position.clone(); p.y = faceY(); return p; }
 function faceNormal(){ return new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), subject.group.rotation.y); }
 scene.add(subject.group);
+// extra people in the set; the meter, light aiming and camera framing follow model 1 (subject)
+const models = [subject];
+function addModel(o){
+  const M = Object.assign({ group:new THREE.Group(), pose:'stand', h:1.68, rot:90, sex:'female' }, o);
+  M.group.position.set(o.x || 0, 0, o.z || 0); scene.add(M.group); models.push(M); buildMannequin(M); return M;
+}
+function dropModel(M){ scene.remove(M.group); models.splice(models.indexOf(M), 1); }
+const modelName = M => models.length > 1 ? `${t('model')} ${models.indexOf(M) + 1}` : t('model');
 
 // ---------- camera (Sony A7CII, full frame 36×24) ----------
 const shootCam = new THREE.PerspectiveCamera(40, 1.5, 0.05, 40);
@@ -741,16 +752,19 @@ function dropProp(P){ scene.remove(P.group); props.splice(props.indexOf(P), 1); 
 function sample(){
   lights.splice(0).forEach(L => { dropLight(L); });
   props.splice(0).forEach(P => scene.remove(P.group));
-  subject.pose = 'stand'; subject.h = 1.72; subject.rot = 90; subject.group.position.set(-1.1, 0, 0.15); buildMannequin();
-  Object.assign(camRig, { f:50, iso:100, sh:125, ap:8, aim:true }); camRig.group.position.set(2.4, 1.45, 0.15);
-  addLight({ fix:'dp600', mod:'qrp70', p:2, x:0.4, y:2.2, z:1.7 });
-  addLight({ fix:'a300c', mod:'bare', p:30, cct:5600, x:0.3, y:1.7, z:-1.5 });
-  addLight({ fix:'a200', mod:'none', p:60, cct:5600, x:-1.85, y:2.3, z:-1.3 });
-  Object.assign(bd, { on27:true, c:1, on5:false });
+  models.slice(1).forEach(dropModel);
+  Object.assign(subject, { pose:'stand', h:1.68, rot:90, sex:'female' }); subject.group.position.set(-1.1, 0, 0.15); buildMannequin();
+  // continuous LED setup: open up and raise ISO (the meter's tip button adjusts from here)
+  Object.assign(camRig, { f:50, iso:400, sh:125, ap:5.6, aim:true, yaw:0, tilt:0 }); camRig.group.position.set(2.4, 1.45, 0.15);
+  addLight({ fix:'a200', mod:'qrp70', p:80, cct:5600, x:0.3, y:2.1, z:1.5 });       // key, camera-right 45°
+  addLight({ fix:'a300c', mod:'tolifo', p:35, cct:5600, x:0.5, y:1.8, z:-1.4 });    // fill, opposite side
+  addLight({ fix:'a200', mod:'bare', p:30, cct:5600, x:-2.5, y:2.3, z:-1.0 });      // back / rim light
+  Object.assign(bd, { on27:true, c:2, on5:false });                                  // green paper
 }
 function serialize(){
   return { v:1, l:lights.map(L => [L.fix, L.mod, +L.group.position.x.toFixed(2), +L.group.position.y.toFixed(2), +L.group.position.z.toFixed(2), L.p, L.cct, L.aim ? 1 : 0, L.yaw, L.tilt]),
-    c:[+camRig.group.position.x.toFixed(2), +camRig.group.position.y.toFixed(2), +camRig.group.position.z.toFixed(2), camRig.f, camRig.iso, camRig.sh, camRig.ap],
+    c:[+camRig.group.position.x.toFixed(2), +camRig.group.position.y.toFixed(2), +camRig.group.position.z.toFixed(2), camRig.f, camRig.iso, camRig.sh, camRig.ap, camRig.aim ? 1 : 0, camRig.yaw, camRig.tilt],
+    e:models.slice(1).map(M => [+M.group.position.x.toFixed(2), +M.group.position.z.toFixed(2), M.rot, M.h, M.pose, M.sex]),
     s:[+subject.group.position.x.toFixed(2), +subject.group.position.z.toFixed(2), subject.rot, subject.h, subject.pose, subject.sex], h:ceilOn(),
     p:props.map(P => [P.key, +P.group.position.x.toFixed(2), +P.group.position.z.toFixed(2), P.rot]), b:[bd.on27 ? 1 : 0, bd.c, bd.on5 ? 1 : 0] };
 }
@@ -761,6 +775,9 @@ function restore(d){
   if (d.b) Object.assign(bd, { on27:!!d.b[0], c:d.b[1] || 0, on5:!!d.b[2] });
   subject.group.position.set(d.s[0], 0, d.s[1]); subject.rot = d.s[2]; subject.h = d.s[3]; subject.pose = d.s[4]; subject.sex = d.s[5] === 'male' ? 'male' : 'female'; buildMannequin();
   camRig.group.position.set(d.c[0], d.c[1], d.c[2]); [camRig.f, camRig.iso, camRig.sh, camRig.ap] = d.c.slice(3);
+  camRig.aim = d.c[7] !== 0; camRig.yaw = d.c[8] || 0; camRig.tilt = d.c[9] || 0;
+  models.slice(1).forEach(dropModel);
+  (d.e || []).forEach(a => addModel({ x:a[0], z:a[1], rot:a[2], h:a[3], pose:a[4], sex:a[5] === 'male' ? 'male' : 'female' }));
   d.l.forEach(a => { if (FIX[a[0]] && MOD[a[1]]) addLight({ fix:a[0], mod:a[1], x:a[2], y:a[3], z:a[4], p:a[5], cct:a[6], aim:!!a[7], yaw:a[8], tilt:a[9] }); });
   $('houseN').value = d.h === 1 ? 48 : d.h || 0;   // old links stored an on/off flag
 }
@@ -778,19 +795,19 @@ function load(){
 let selected = null;   // { kind:'light'|'camera'|'subject', L? }
 function select(sel){
   selected = sel;
-  const obj = !sel ? null : sel.kind === 'light' ? sel.L.group : sel.kind === 'camera' ? camRig.group : sel.kind === 'prop' ? sel.P.group : subject.group;
+  const obj = !sel ? null : sel.kind === 'light' ? sel.L.group : sel.kind === 'camera' ? camRig.group : sel.kind === 'prop' ? sel.P.group : (sel.M || subject).group;
   if (obj) { tc.attach(obj); tc.showY = sel.kind !== 'subject' && sel.kind !== 'prop'; } else tc.detach();
   renderList(); renderProps();
 }
 function renderList(){
-  const items = [{ kind:'subject', label:t('model'), sub:t(subject.sex) + ' · ' + (subject.pose === 'stand' ? t('stand') : t('sit')), color:'#bdb6ae' },
-                 { kind:'camera', label:'Sony A7CII', sub:`${camRig.f} mm · ISO ${camRig.iso}`, color:'#ff4f8b' }]
+  const items = models.map(M => ({ kind:'subject', M, label:modelName(M), sub:t(M.sex) + ' · ' + (M.pose === 'stand' ? t('stand') : t('sit')), color:'#bdb6ae' }))
+    .concat([{ kind:'camera', label:'Sony A7CII', sub:`${camRig.f} mm · ISO ${camRig.iso}`, color:'#ff4f8b' }])
     .concat(lights.map(L => ({ kind:'light', L, label:FIX[L.fix].name, sub:(FIX[L.fix].kind === 'flash' ? stops(L.p) : L.p + '%') + ' · ' + (FIX[L.fix].kind === 'panel' ? 'Kino' : MOD[L.mod].name[LANG === 'en' ? 1 : LANG === 'ko' ? 2 : 0]), color:'#' + kelvinRGB(L.cct).getHexString(), tag:FIX[L.fix].free })))
     .concat(props.map(P => ({ kind:'prop', P, label:PROPS[P.key][LANG === 'en' ? 1 : LANG === 'ko' ? 2 : 0], sub:t('prop'), color:'#8a6a4a' })));
-  $('list').innerHTML = items.map((it, i) => `<button class="item" role="option" type="button" data-i="${i}" aria-selected="${!!selected && selected.kind === it.kind && selected.L === it.L && selected.P === it.P}">
+  $('list').innerHTML = items.map((it, i) => `<button class="item" role="option" type="button" data-i="${i}" aria-selected="${!!selected && selected.kind === it.kind && selected.L === it.L && selected.P === it.P && selected.M === it.M}">
     <span class="dot" style="color:${it.color};background:${it.color}"></span><span><b>${it.label}</b><small>${it.sub}</small></span>
     ${it.kind === 'light' ? `<span class="tag ${it.tag ? 'free' : 'rent'}">${it.tag ? t('free') : t('rent')}</span>` : ''}</button>`).join('');
-  $('list').querySelectorAll('.item').forEach(b => b.addEventListener('click', () => { const it = items[+b.dataset.i]; select({ kind:it.kind, L:it.L, P:it.P }); }));
+  $('list').querySelectorAll('.item').forEach(b => b.addEventListener('click', () => { const it = items[+b.dataset.i]; select({ kind:it.kind, L:it.L, P:it.P, M:it.M }); }));
 }
 function slider(id, label, min, max, step, val, fmt){ return `<div class="field"><label for="${id}">${label}<output id="${id}O">${fmt(val)}</output></label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"></div>`; }
 function renderProps(){
@@ -823,18 +840,34 @@ function renderProps(){
     $('prRot').addEventListener('input', e => { P.rot = +e.target.value; $('prRotO').textContent = P.rot + '°'; P.group.rotation.y = THREE.MathUtils.degToRad(P.rot); save(); });
     $('prDel').addEventListener('click', () => { dropProp(P); select(null); save(); });
   } else if (selected.kind === 'camera') {
-    box.innerHTML = `<h4>${t('camera')}</h4>${slider('cF', t('focal'), 16, 135, 1, camRig.f, v => v + ' mm')}${slider('cH', t('height'), 0.4, 2.4, 0.05, camRig.group.position.y, v => (+v).toFixed(2) + ' m')}`;
+    box.innerHTML = `<h4>${t('camera')}</h4>${slider('cF', t('focal'), 16, 135, 1, camRig.f, v => v + ' mm')}${slider('cH', t('height'), 0.4, 2.4, 0.05, camRig.group.position.y, v => (+v).toFixed(2) + ' m')}
+      <label class="chk"><input type="checkbox" id="cAim"${camRig.aim ? ' checked' : ''}> ${t('camAim')}</label>
+      <div id="cManual"${camRig.aim ? ' hidden' : ''}>${slider('cYaw', t('yaw'), -180, 180, 1, camRig.yaw, v => v + '°')}${slider('cTilt', t('tilt'), -60, 45, 1, camRig.tilt, v => v + '°')}</div>`;
     $('cF').addEventListener('input', e => { camRig.f = +e.target.value; $('cFO').textContent = camRig.f + ' mm'; refresh(); save(); renderList(); });
     $('cH').addEventListener('input', e => { camRig.group.position.y = +e.target.value; $('cHO').textContent = (+e.target.value).toFixed(2) + ' m'; refresh(); save(); });
+    $('cAim').addEventListener('change', e => {
+      // switching to free aim starts from where the camera points now, so the frame doesn't jump
+      if (!e.target.checked) { const d = facePoint().sub(camRig.group.position); camRig.yaw = Math.round(THREE.MathUtils.radToDeg(Math.atan2(-d.x, -d.z))); camRig.tilt = Math.round(THREE.MathUtils.radToDeg(Math.atan2(d.y, Math.hypot(d.x, d.z)))); }
+      camRig.aim = e.target.checked; renderProps(); refresh(); save(); });
+    [['cYaw', 'yaw'], ['cTilt', 'tilt']].forEach(([id, k]) => { const el = $(id); if (el) el.addEventListener('input', () => { camRig[k] = +el.value; $(id + 'O').textContent = el.value + '°'; refresh(); save(); }); });
   } else {
-    box.innerHTML = `<h4>${t('model')}</h4>
-      <div class="field"><label>${t('sex')}</label><div class="seg"><button type="button" data-sex="female" aria-pressed="${subject.sex === 'female'}">${t('female')}</button><button type="button" data-sex="male" aria-pressed="${subject.sex === 'male'}">${t('male')}</button></div></div>
-      <div class="field"><label>${t('pose')}</label><div class="seg"><button type="button" data-pose="stand" aria-pressed="${subject.pose === 'stand'}">${t('stand')}</button><button type="button" data-pose="sit" aria-pressed="${subject.pose === 'sit'}">${t('sit')}</button></div></div>
-      ${slider('sRot', t('facing'), -180, 180, 5, subject.rot, v => v + '°')}${slider('sH', t('mh'), 1.5, 1.95, 0.01, subject.h, v => (+v).toFixed(2) + ' m')}`;
-    box.querySelectorAll('[data-sex]').forEach(b => b.addEventListener('click', () => { subject.sex = b.dataset.sex; subject.h = subject.sex === 'male' ? 1.75 : 1.68; buildMannequin(); renderProps(); renderList(); refresh(); save(); }));
-    box.querySelectorAll('[data-pose]').forEach(b => b.addEventListener('click', () => { subject.pose = b.dataset.pose; buildMannequin(); renderProps(); renderList(); refresh(); save(); }));
-    $('sRot').addEventListener('input', e => { subject.rot = +e.target.value; $('sRotO').textContent = subject.rot + '°'; subject.group.rotation.y = THREE.MathUtils.degToRad(subject.rot); refresh(); save(); });
-    $('sH').addEventListener('input', e => { subject.h = +e.target.value; $('sHO').textContent = subject.h.toFixed(2) + ' m'; buildMannequin(); refresh(); save(); });
+    const S = selected.M || subject, extra = S !== subject;
+    box.innerHTML = `<h4>${modelName(S)}</h4>
+      <div class="field"><label>${t('sex')}</label><div class="seg"><button type="button" data-sex="female" aria-pressed="${S.sex === 'female'}">${t('female')}</button><button type="button" data-sex="male" aria-pressed="${S.sex === 'male'}">${t('male')}</button></div></div>
+      <div class="field"><label>${t('pose')}</label><div class="seg"><button type="button" data-pose="stand" aria-pressed="${S.pose === 'stand'}">${t('stand')}</button><button type="button" data-pose="sit" aria-pressed="${S.pose === 'sit'}">${t('sit')}</button></div></div>
+      ${slider('sRot', t('facing'), -180, 180, 5, S.rot, v => v + '°')}${slider('sH', t('mh'), 1.5, 1.95, 0.01, S.h, v => (+v).toFixed(2) + ' m')}
+      <div class="row"><button class="btn pink" type="button" id="sAdd">${t('addModel')}</button>${extra ? `<button class="btn danger" type="button" id="sDel">${t('delModel')}</button>` : ''}</div>
+      ${models.length > 1 ? `<p class="note">${t('mainModel')}</p>` : ''}`;
+    box.querySelectorAll('[data-sex]').forEach(b => b.addEventListener('click', () => { S.sex = b.dataset.sex; S.h = S.sex === 'male' ? 1.75 : 1.68; buildMannequin(S); renderProps(); renderList(); refresh(); save(); }));
+    box.querySelectorAll('[data-pose]').forEach(b => b.addEventListener('click', () => { S.pose = b.dataset.pose; buildMannequin(S); renderProps(); renderList(); refresh(); save(); }));
+    $('sRot').addEventListener('input', e => { S.rot = +e.target.value; $('sRotO').textContent = S.rot + '°'; S.group.rotation.y = THREE.MathUtils.degToRad(S.rot); refresh(); save(); });
+    $('sH').addEventListener('input', e => { S.h = +e.target.value; $('sHO').textContent = S.h.toFixed(2) + ' m'; buildMannequin(S); refresh(); save(); });
+    $('sAdd').addEventListener('click', () => {
+      const side = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), subject.group.rotation.y), n = models.length;
+      const p = subject.group.position.clone().addScaledVector(side, (n % 2 ? 1 : -1) * 0.7 * Math.ceil(n / 2));
+      const M = addModel({ x:THREE.MathUtils.clamp(p.x, ROOM.x0, ROOM.x1), z:THREE.MathUtils.clamp(p.z, ROOM.z0, ROOM.z1), rot:subject.rot, sex:n % 2 ? 'male' : 'female', h:n % 2 ? 1.75 : 1.68 });
+      select({ kind:'subject', M }); refresh(); save(); });
+    if (extra) $('sDel').addEventListener('click', () => { dropModel(S); select(null); refresh(); save(); });
   }
 }
 function fillFixtureSelect(){
@@ -858,14 +891,15 @@ function fillCamSelects(){
 function constrain(obj){
   const p = obj.position;
   p.x = THREE.MathUtils.clamp(p.x, ROOM.x0, ROOM.x1); p.z = THREE.MathUtils.clamp(p.z, ROOM.z0, ROOM.z1);
-  if (obj === subject.group || obj.userData.kind === 'prop') p.y = 0;
+  if (obj.userData.kind === 'subject' || obj.userData.kind === 'prop') p.y = 0;
   else if (obj === camRig.group) p.y = THREE.MathUtils.clamp(p.y, 0.4, 2.4);
   else { const [y0, y1] = standRange(obj.userData.L); p.y = THREE.MathUtils.clamp(p.y, y0, y1); }
   if (selected && selected.kind !== 'subject' && selected.kind !== 'prop') { const h = $(selected.kind === 'light' ? 'pH' : 'cH'); if (h) { h.value = p.y; const o = $(h.id + 'O'); if (o) o.textContent = p.y.toFixed(2) + ' m'; } }
 }
 function layoutCamera(){
   const g = camRig.group, y = g.position.y; layoutTripod(g, y);
-  const target = facePoint(); target.y = Math.min(target.y, faceY());
+  const target = camRig.aim ? facePoint()
+    : g.position.clone().add(new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(THREE.MathUtils.degToRad(camRig.tilt), THREE.MathUtils.degToRad(camRig.yaw), 0, 'YXZ')));
   const head = g.getObjectByName('camHead'); head.lookAt(target);
   shootCam.position.copy(g.position); shootCam.lookAt(target);
   shootCam.fov = THREE.MathUtils.radToDeg(2 * Math.atan(12 / camRig.f)); shootCam.aspect = 1.5; shootCam.updateProjectionMatrix();
@@ -973,12 +1007,12 @@ renderer.domElement.addEventListener('pointerup', e => {
   const r = renderer.domElement.getBoundingClientRect();
   ndc.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
   ray.setFromCamera(ndc, viewCam);
-  const targets = [subject.group, camRig.group, ...lights.map(L => L.group), ...props.map(P => P.group)];
+  const targets = [...models.map(M => M.group), camRig.group, ...lights.map(L => L.group), ...props.map(P => P.group)];
   const hit = ray.intersectObjects(targets, true)[0];
   if (!hit) { select(null); return; }
   let o = hit.object; while (o && !o.userData.kind) o = o.parent;
   if (!o) return;
-  select(o.userData.kind === 'light' ? { kind:'light', L:o.userData.L } : o.userData.kind === 'prop' ? { kind:'prop', P:o.userData.P } : { kind:o.userData.kind });
+  select(o.userData.kind === 'light' ? { kind:'light', L:o.userData.L } : o.userData.kind === 'prop' ? { kind:'prop', P:o.userData.P } : o.userData.kind === 'subject' ? { kind:'subject', M:o.userData.M } : { kind:o.userData.kind });
 });
 
 // ---------- views & render loop ----------
