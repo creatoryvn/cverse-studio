@@ -164,7 +164,7 @@ input[type=range]{width:100%;accent-color:var(--pink)}
       <div class="swatches" id="bdColors" role="group" aria-label="Backdrop colour"></div>
       <label class="chk" style="margin:8px 0"><input type="checkbox" id="bd5"> <span data-t="bd5">Phông xanh lá 5 m</span></label>
       <div class="field"><label for="houseN"><span data-t="house">Đèn trần (LED tuýp 1,2 m)</span><output id="houseNO">0</output></label><input type="range" id="houseN" min="0" max="48" step="4" value="0"></div>
-      <label class="chk" style="margin-top:8px"><input type="checkbox" id="cut" checked> <span data-t="cut">Ẩn tường phía trước (kiểu The Sims)</span></label>
+      <label class="chk" style="margin-top:8px"><input type="checkbox" id="cut" checked> <span data-t="cut">Ẩn tường chính đối diện phông (góc tự do)</span></label>
       <label class="chk" style="margin-top:8px"><input type="checkbox" id="frus" checked> <span data-t="frus">Hiện đường góc máy ảnh</span></label>
       <p class="note" style="margin-top:8px" data-t="eye">Góc tự do: nhìn như mắt thường, không phụ thuộc máy ảnh. Khung máy ảnh theo đúng ISO, tốc độ, khẩu độ.</p>
       <div class="row" style="margin-top:12px"><button class="btn" type="button" id="shareBtn" data-t="share">Lưu &amp; chép link</button><button class="btn" type="button" id="resetBtn" data-t="reset">Bố trí mẫu</button></div>
@@ -173,7 +173,7 @@ input[type=range]{width:100%;accent-color:var(--pink)}
         <a class="cta" href="./#dat-lich" data-t="book">Đặt lịch Room A</a>
       </div>
       <p class="note" style="margin-top:10px" data-t="disclaimer">Kết quả mang tính tham khảo (sai số khoảng ±1 stop). Thông số đèn lấy theo công bố của hãng; bóng đổ và ánh sáng phản xạ được mô phỏng gần đúng.</p>
-      <p class="note" style="margin-top:6px" data-t="headCredit">Người mẫu 3D: Michelle (Mixamo, Adobe).</p>
+      <p class="note" style="margin-top:6px" data-t="headCredit">Người mẫu 3D: Mixamo (Adobe).</p>
     </section>
   </div>
 </aside>
@@ -220,10 +220,11 @@ const T = {
   controls:['Bảng điều khiển','Controls','설정'], addLight:['Thêm đèn','Add a light','조명 추가'], add:['+ Thêm','+ Add','+ 추가'],
   scene:['Trong cảnh','In the scene','장면 구성'], room:['Phòng','Room','룸'],
   house:['Đèn trần (LED tuýp 1,2 m)','Ceiling lights (1.2 m LED tubes)','천장 조명 (1.2 m LED 튜브)'], tubes:['bóng','tubes','개'],
-  cut:['Ẩn tường phía trước (kiểu The Sims)','Hide walls in front (The Sims style)','앞쪽 벽 숨기기 (심즈 방식)'],
+  cut:['Ẩn tường chính đối diện phông (góc tự do)','Hide the main wall facing the backdrop (free view)','배경 맞은편 메인 벽 숨기기 (자유 시점)'],
+  sex:['Nhân vật','Character','인물'], male:['Nam','Male','남성'], female:['Nữ','Female','여성'],
   frus:['Hiện đường góc máy ảnh','Show camera view lines','카메라 화각 선 표시'], floorLux:['sàn','floor','바닥'],
   stockMsg:['Studio hiện có {n} đèn {name}. Nếu muốn thuê thêm, vui lòng báo studio trước. Bạn vẫn có thể thêm để thử bố trí.','The studio has {n} × {name}. To rent more, please tell the studio in advance. You can still add it to try the setup.','스튜디오 보유 {name}: {n}대. 추가 대여는 사전에 스튜디오에 문의해 주세요. 시뮬레이션에는 계속 추가할 수 있습니다.'],
-  headCredit:['Người mẫu 3D: Michelle (Mixamo, Adobe).','3D model: Michelle (Mixamo, Adobe).','3D 모델: Michelle (Mixamo, Adobe).'],
+  headCredit:['Người mẫu 3D: Mixamo (Adobe).','3D models: Mixamo (Adobe).','3D 모델: Mixamo (Adobe).'],
   eye:['Góc tự do: nhìn như mắt thường, không phụ thuộc máy ảnh. Khung máy ảnh theo đúng ISO, tốc độ, khẩu độ.','Free view: what your eyes see, independent of the camera. The camera frame follows its ISO, shutter and aperture.','자유 시점: 카메라와 무관하게 눈으로 보는 밝기. 카메라 화면은 ISO·셔터·조리개를 그대로 따릅니다.'],
   bounce:['Ánh sáng hắt (tường, sàn, phông)','Bounce (walls, floor, backdrop)','반사광 (벽·바닥·배경)'],
   tip:['Gợi ý','Try','추천'], props:['Thêm vật dụng','Add furniture','소품 추가'], prop:['Vật dụng','Furniture','소품'],
@@ -344,7 +345,7 @@ for (let i = 0; i < CEIL.per; i++) CEIL.xs.push(-3.6 + i * 1.44);
 for (let j = 0; j < CEIL.rows; j++) CEIL.zs.push(-3.33 + j * 0.95);
 CEIL.tubes = new THREE.InstancedMesh(new THREE.BoxGeometry(1.2, 0.03, 0.03),
   new THREE.MeshStandardMaterial({ color:0x222222, emissive:kelvinRGB(4000), emissiveIntensity:1 }), CEIL.rows * CEIL.per);
-scene.add(CEIL.tubes);
+// the tubes themselves aren't drawn (only their light), as asked; kept as an object for the emissive bookkeeping
 CEIL.zs.forEach(z => { const a = new THREE.RectAreaLight(kelvinRGB(4000), 0, 8.4, 0.08); a.position.set(0, CEIL.y - 0.02, z); a.lookAt(0, 0, z); scene.add(a); CEIL.areas.push(a); });
 // switching order: checkerboard first (half the tubes = a perfect "caro"), each half picked farthest-first so any count spreads evenly
 CEIL.all = []; CEIL.zs.forEach((z, j) => CEIL.xs.forEach((x, i) => CEIL.all.push({ x, z, row:j, odd:(i + j) % 2 })));
@@ -399,10 +400,10 @@ function toast(msg, ms = 1800){ const el = $('toast'); el.textContent = msg; el.
 const matStd = (c, r = 0.7, m = 0) => new THREE.MeshStandardMaterial({ color:c, roughness:r, metalness:m });
 
 // ---------- subject (mannequin) ----------
-const subject = { group:new THREE.Group(), pose:'stand', h:1.72, rot:90 };
+const subject = { group:new THREE.Group(), pose:'stand', h:1.68, rot:90, sex:'female' };
 const skin = matStd(0xcdb3a1, 0.65);
 function buildMannequin(){
-  if (HUMAN) return buildHuman();
+  if (HUMANS[subject.sex]) return buildHuman();
   const g = subject.group; g.clear(); subject.eye = null;
   const s = subject.h / 1.75, cap = (r, l, x, y, z, rx = 0, rz = 0) => { const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, l, 4, 10), skin); m.position.set(x, y, z); m.rotation.set(rx, 0, rz); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
   if (subject.pose === 'stand') {
@@ -424,12 +425,12 @@ function buildMannequin(){
   g.rotation.y = THREE.MathUtils.degToRad(subject.rot);
   g.userData.kind = 'subject';
 }
-let HUMAN = null;   // rigged person template (cloned per rebuild)
+const HUMANS = {};   // rigged people (Mixamo male / female), cloned per rebuild
 // Pose the rigged person: arms relaxed, and for "seated" thighs forward and knees bent on a stool.
 // Bone names follow Mixamo (Hips, Spine, LeftArm, LeftForeArm, LeftUpLeg, LeftLeg, Head, HeadTop_End…).
 function buildHuman(){
   const g = subject.group; g.clear(); g.scale.setScalar(1); subject.eye = null;
-  const h = SkeletonUtils.clone(HUMAN), B = {};
+  const h = SkeletonUtils.clone(HUMANS[subject.sex]), B = {};
   h.traverse(o => { if (o.isBone) B[o.name.replace(/^mixamorig:?/, '')] = o; });
   g.add(h); g.rotation.set(0, 0, 0); g.position.y = 0;
   g.updateMatrixWorld(true);
@@ -663,10 +664,12 @@ const tidy = o => o.traverse(m => {
       ...keys.map(k => loadGLB('assets/3d/' + MAN.assets[k].file))]);
     keys.forEach((k, i) => { tidy(parts[i]); ASSET[k] = parts[i]; });
     try {   // full-body textured, rigged person (Mixamo "Michelle" from the three.js examples)
-      HUMAN = await loadGLB('assets/3d/human/Michelle.glb');
-      HUMAN.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.frustumCulled = false; } });
-      tidy(HUMAN);
-    } catch (_) { HUMAN = null; }
+      const [m, f] = await Promise.all(['male', 'female'].map(s => loadGLB(`assets/3d/human/${s}.glb`)));
+      Object.assign(HUMANS, { male:m, female:f });
+      // Mixamo "nonPBR" materials come through glossy/metallic; skin and clothes are matte
+      [m, f].forEach(p => { p.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.frustumCulled = false;
+        (Array.isArray(o.material) ? o.material : [o.material]).forEach(x => { if (x && x.isMeshStandardMaterial) { x.metalness = 0; x.metalnessMap = null; x.roughness = Math.max(x.roughness, 0.7); x.roughnessMap = null; x.needsUpdate = true; } }); } }); tidy(p); });
+    } catch (_) {}
     tidy(room);
     room.traverse(o => { if (o.isMesh) { o.receiveShadow = true; o.castShadow = o.geometry.boundingSphere ? o.geometry.boundingSphere.radius < 3 : true; } });
     const b27 = room.getObjectByName('backdrop_27'), b5 = room.getObjectByName('backdrop_5');
@@ -676,7 +679,7 @@ const tidy = o => o.traverse(m => {
     if (b5) b5.material.color.set(0x3f9a46);
     setupMirror(room); setupShelf(room);
     // room shell walls with their inward normals (three.js axes) for the cut-away view
-    [['WALL_xp', -1, 0], ['WALL_xn', 1, 0], ['WALL_yp', 0, 1], ['WALL_yn', 0, -1]].forEach(([n, x, z]) => {
+    [['MAIN_WALL', -1, 0]].forEach(([n, x, z]) => {
       const o = room.getObjectByName(n); if (o) WALLS.push({ o, inward:new THREE.Vector3(x, 0, z) }); });
     scene.add(room); roomObj = room;
     $('loading').hidden = true;
@@ -748,7 +751,7 @@ function sample(){
 function serialize(){
   return { v:1, l:lights.map(L => [L.fix, L.mod, +L.group.position.x.toFixed(2), +L.group.position.y.toFixed(2), +L.group.position.z.toFixed(2), L.p, L.cct, L.aim ? 1 : 0, L.yaw, L.tilt]),
     c:[+camRig.group.position.x.toFixed(2), +camRig.group.position.y.toFixed(2), +camRig.group.position.z.toFixed(2), camRig.f, camRig.iso, camRig.sh, camRig.ap],
-    s:[+subject.group.position.x.toFixed(2), +subject.group.position.z.toFixed(2), subject.rot, subject.h, subject.pose], h:ceilOn(),
+    s:[+subject.group.position.x.toFixed(2), +subject.group.position.z.toFixed(2), subject.rot, subject.h, subject.pose, subject.sex], h:ceilOn(),
     p:props.map(P => [P.key, +P.group.position.x.toFixed(2), +P.group.position.z.toFixed(2), P.rot]), b:[bd.on27 ? 1 : 0, bd.c, bd.on5 ? 1 : 0] };
 }
 function restore(d){
@@ -756,7 +759,7 @@ function restore(d){
   props.splice(0).forEach(P => scene.remove(P.group));
   (d.p || []).forEach(a => { if (PROPS[a[0]]) addProp({ key:a[0], x:a[1], z:a[2], rot:a[3] }); });
   if (d.b) Object.assign(bd, { on27:!!d.b[0], c:d.b[1] || 0, on5:!!d.b[2] });
-  subject.group.position.set(d.s[0], 0, d.s[1]); subject.rot = d.s[2]; subject.h = d.s[3]; subject.pose = d.s[4]; buildMannequin();
+  subject.group.position.set(d.s[0], 0, d.s[1]); subject.rot = d.s[2]; subject.h = d.s[3]; subject.pose = d.s[4]; subject.sex = d.s[5] === 'male' ? 'male' : 'female'; buildMannequin();
   camRig.group.position.set(d.c[0], d.c[1], d.c[2]); [camRig.f, camRig.iso, camRig.sh, camRig.ap] = d.c.slice(3);
   d.l.forEach(a => { if (FIX[a[0]] && MOD[a[1]]) addLight({ fix:a[0], mod:a[1], x:a[2], y:a[3], z:a[4], p:a[5], cct:a[6], aim:!!a[7], yaw:a[8], tilt:a[9] }); });
   $('houseN').value = d.h === 1 ? 48 : d.h || 0;   // old links stored an on/off flag
@@ -780,7 +783,7 @@ function select(sel){
   renderList(); renderProps();
 }
 function renderList(){
-  const items = [{ kind:'subject', label:t('model'), sub:subject.pose === 'stand' ? t('stand') : t('sit'), color:'#bdb6ae' },
+  const items = [{ kind:'subject', label:t('model'), sub:t(subject.sex) + ' · ' + (subject.pose === 'stand' ? t('stand') : t('sit')), color:'#bdb6ae' },
                  { kind:'camera', label:'Sony A7CII', sub:`${camRig.f} mm · ISO ${camRig.iso}`, color:'#ff4f8b' }]
     .concat(lights.map(L => ({ kind:'light', L, label:FIX[L.fix].name, sub:(FIX[L.fix].kind === 'flash' ? stops(L.p) : L.p + '%') + ' · ' + (FIX[L.fix].kind === 'panel' ? 'Kino' : MOD[L.mod].name[LANG === 'en' ? 1 : LANG === 'ko' ? 2 : 0]), color:'#' + kelvinRGB(L.cct).getHexString(), tag:FIX[L.fix].free })))
     .concat(props.map(P => ({ kind:'prop', P, label:PROPS[P.key][LANG === 'en' ? 1 : LANG === 'ko' ? 2 : 0], sub:t('prop'), color:'#8a6a4a' })));
@@ -825,8 +828,10 @@ function renderProps(){
     $('cH').addEventListener('input', e => { camRig.group.position.y = +e.target.value; $('cHO').textContent = (+e.target.value).toFixed(2) + ' m'; refresh(); save(); });
   } else {
     box.innerHTML = `<h4>${t('model')}</h4>
+      <div class="field"><label>${t('sex')}</label><div class="seg"><button type="button" data-sex="female" aria-pressed="${subject.sex === 'female'}">${t('female')}</button><button type="button" data-sex="male" aria-pressed="${subject.sex === 'male'}">${t('male')}</button></div></div>
       <div class="field"><label>${t('pose')}</label><div class="seg"><button type="button" data-pose="stand" aria-pressed="${subject.pose === 'stand'}">${t('stand')}</button><button type="button" data-pose="sit" aria-pressed="${subject.pose === 'sit'}">${t('sit')}</button></div></div>
       ${slider('sRot', t('facing'), -180, 180, 5, subject.rot, v => v + '°')}${slider('sH', t('mh'), 1.5, 1.95, 0.01, subject.h, v => (+v).toFixed(2) + ' m')}`;
+    box.querySelectorAll('[data-sex]').forEach(b => b.addEventListener('click', () => { subject.sex = b.dataset.sex; subject.h = subject.sex === 'male' ? 1.75 : 1.68; buildMannequin(); renderProps(); renderList(); refresh(); save(); }));
     box.querySelectorAll('[data-pose]').forEach(b => b.addEventListener('click', () => { subject.pose = b.dataset.pose; buildMannequin(); renderProps(); renderList(); refresh(); save(); }));
     $('sRot').addEventListener('input', e => { subject.rot = +e.target.value; $('sRotO').textContent = subject.rot + '°'; subject.group.rotation.y = THREE.MathUtils.degToRad(subject.rot); refresh(); save(); });
     $('sH').addEventListener('input', e => { subject.h = +e.target.value; $('sHO').textContent = subject.h.toFixed(2) + ' m'; buildMannequin(); refresh(); save(); });
@@ -952,9 +957,9 @@ function setMode(eye){
   });
   bounceAmb.intensity = (eye ? bounceEyeE : bounceE) / Math.PI;
   CEIL.tubes.material.emissiveIntensity = 3 / exp;   // lit tubes read as bright white whatever the exposure
-  // The Sims-style cut-away: in the free view, walls standing between the viewer and the room are hidden
-  const fwd = viewCam.getWorldDirection(new THREE.Vector3()).setY(0).normalize(), cut = eye && $('cut').checked;
-  WALLS.forEach(w => { w.o.visible = !(cut && w.inward.dot(fwd) > 0.25); });
+  // cut-away: in the free view the main wall facing the backdrops can be hidden
+  const cut = eye && $('cut').checked;
+  WALLS.forEach(w => { w.o.visible = !cut; });
   renderer.toneMappingExposure = exp;
 }
 
